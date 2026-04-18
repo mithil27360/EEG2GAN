@@ -1,0 +1,111 @@
+import os
+import argparse
+import numpy as np
+import torch
+from torch.utils.data import DataLoader
+from PIL import Image
+import config
+from models.encoder import TransformerEEGEncoder, LSTMEEGEncoder
+from models.gan import Generator
+from utils.metrics import InceptionScoreCalculator, kmeans_accuracy, EISCCalculator, FIDCalculator, tensor_to_pil_list
+from dataset import DummyEEGImageDataset, EEGImageDataset
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--encoder_ckpt", type=str, default="")
+    p.add_argument("--gan_ckpt",     type=str, default="")
+    p.add_argument("--encoder_type", choices=["transformer", "lstm"], default="transformer")
+    p.add_argument("--dataset",      choices=["objects", "characters", "mindbigdata", "imagenet"], default="objects")
+    p.add_argument("--dummy",        action="store_true")
+    p.add_argument("--batch_size",   type=int, default=16)
+    p.add_argument("--n_gen",        type=int, default=230)
+    p.add_argument("--no_eisc",      action="store_true")
+    p.add_argument("--output_csv",   type=str, default="")
+    return p.parse_args()
+
+@torch.no_grad()
+def generate_images(encoder, netG, dataloader, device, n_gen=230):
+    encoder.eval()
+    netG.eval()
+    gen_images  = []
+    real_images = []
+    all_embs    = []
+    all_labels  = []
+    for eeg, real_img, label in dataloader:
+        if len(gen_images) >= n_gen:
+            break
+        eeg      = eeg.to(device)
+        eeg_feat = encoder(eeg)
+        noise    = torch.randn(eeg.size(0), config.NOISE_DIM, 1, 1, device=device)
+        z        = torch.cat([noise.view(eeg.size(0), -1), eeg_feat],
+                             dim=1).view(eeg.size(0), config.Z_DIM, 1, 1)
+        fake     = netG(z)
+        gen_images.extend(tensor_to_pil_list(fake))
+        real_images.extend(tensor_to_pil_list(real_img))
+        all_embs.append(eeg_feat.cpu().numpy())
+        all_labels.append(label.numpy())
+    all_embs   = np.concatenate(all_embs)[:n_gen]
+    all_labels = np.concatenate(all_labels)[:n_gen]
+    gen_images  = gen_images[:n_gen]
+    real_images = real_images[:n_gen]
+    return gen_images, real_images, all_embs, all_labels
+
+def evaluate(args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.dummy:
+        ds = DummyEEGImageDataset(n_samples=230, n_classes=10)
+    else:
+        ds_map = {
+            "objects"    : (config.THOUGHTVIZ_EEG_OBJECTS, config.THOUGHTVIZ_LABELS_OBJECTS, config.THOUGHTVIZ_IMAGES_OBJECTS),
+            "characters" : (config.THOUGHTVIZ_EEG_CHARS,   config.THOUGHTVIZ_LABELS_CHARS, config.THOUGHTVIZ_IMAGES_CHARS),
+            "mindbigdata": (config.MINDBIGDATA_EEG, config.MINDBIGDATA_LABELS, config.MINDBIGDATA_IMAGES),
+            "imagenet"   : (config.MINDBIGDATA_IMAGENET_EEG, config.MINDBIGDATA_IMAGENET_LABELS, config.MINDBIGDATA_IMAGENET_IMAGES),
+        }
+        eeg_p, lbl_p, img_p = ds_map[args.dataset]
+        ds = EEGImageDataset(eeg_p, lbl_p, img_p)
+    loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False)
+    n_channels = 5 if args.dataset == "imagenet" else 14
+    if args.encoder_type == "transformer":
+        encoder = TransformerEEGEncoder(n_channels=n_channels).to(device)
+    else:
+        encoder = LSTMEEGEncoder(n_channels=n_channels).to(device)
+    if args.encoder_ckpt and os.path.isfile(args.encoder_ckpt):
+        ckpt = torch.load(args.encoder_ckpt, map_location=device)
+        encoder.load_state_dict(ckpt["encoder_state"])
+    netG = Generator().to(device)
+    if args.gan_ckpt and os.path.isfile(args.gan_ckpt):
+        ckpt = torch.load(args.gan_ckpt, map_location=device)
+        netG.load_state_dict(ckpt["G_state"])
+    gen_imgs, real_imgs, embs, labels = generate_images(encoder, netG, loader, device, args.n_gen)
+    km_acc = kmeans_accuracy(embs, labels, n_clusters=len(np.unique(labels)))
+    is_calc = InceptionScoreCalculator(device=device)
+    is_mean, is_std = is_calc.compute(gen_imgs)
+    eisc_score = None
+    if not args.no_eisc:
+        eisc_calc = EISCCalculator(device=device)
+        eisc_score = eisc_calc.compute(gen_imgs, real_imgs)
+    fid_calc = FIDCalculator(device=device)
+    fid_score = fid_calc.compute(gen_imgs, real_imgs)
+    if args.output_csv:
+        import csv
+        fieldnames = ["method", "dataset", "IS_mean", "IS_std", "kmeans", "EISC", "FID"]
+        row = {
+            "method" : args.encoder_type,
+            "dataset": args.dataset,
+            "IS_mean": f"{is_mean:.4f}",
+            "IS_std" : f"{is_std:.4f}",
+            "kmeans" : f"{km_acc:.4f}",
+            "EISC"   : f"{eisc_score:.4f}" if eisc_score is not None else "N/A",
+            "FID"    : f"{fid_score:.4f}",
+        }
+        write_header = not os.path.isfile(args.output_csv)
+        with open(args.output_csv, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+    return {"IS": is_mean, "IS_std": is_std, "kmeans": km_acc, "EISC": eisc_score}
+
+if __name__ == "__main__":
+    args = parse_args()
+    evaluate(args)
