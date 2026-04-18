@@ -121,7 +121,7 @@ def train(args):
 
         if (epoch + 1) % 10 == 0 or epoch == 0:
             embs, lbls = extract_embeddings(encoder, val_loader, device)
-            val_km = kmeans_accuracy(embs, lbls, n_clusters=len(np.unique(lbls)))
+            val_km = kmeans_accuracy(embs, lbls)
             if val_km > best_kmeans:
                 best_kmeans = val_km
                 patience_ctr = 0

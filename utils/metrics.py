@@ -1,6 +1,7 @@
 from __future__ import annotations
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score
@@ -56,6 +57,7 @@ def kmeans_accuracy(
 ) -> float:
     if n_clusters is None:
         n_clusters = len(np.unique(labels))
+    n_clusters = min(n_clusters, len(embeddings) // 5, 50)
     km = KMeans(n_clusters=n_clusters, n_init=n_init, random_state=seed)
     cluster_ids = km.fit_predict(embeddings)
     cluster_to_label = {}

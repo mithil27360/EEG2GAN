@@ -36,10 +36,9 @@ def generate_images(encoder, netG, dataloader, device, n_gen=230):
             break
         eeg      = eeg.to(device)
         eeg_feat = encoder(eeg)
-        noise    = torch.randn(eeg.size(0), config.NOISE_DIM, 1, 1, device=device)
-        z        = torch.cat([noise.view(eeg.size(0), -1), eeg_feat],
-                             dim=1).view(eeg.size(0), config.Z_DIM, 1, 1)
-        fake     = netG(z)
+        noise = torch.randn(eeg.size(0), config.NOISE_DIM, device=device)
+        z     = torch.cat([noise, eeg_feat], dim=1)
+        fake  = netG(z)
         gen_images.extend(tensor_to_pil_list(fake))
         real_images.extend(tensor_to_pil_list(real_img))
         all_embs.append(eeg_feat.cpu().numpy())
@@ -77,7 +76,7 @@ def evaluate(args):
         ckpt = torch.load(args.gan_ckpt, map_location=device)
         netG.load_state_dict(ckpt["G_state"])
     gen_imgs, real_imgs, embs, labels = generate_images(encoder, netG, loader, device, args.n_gen)
-    km_acc = kmeans_accuracy(embs, labels, n_clusters=len(np.unique(labels)))
+    km_acc = kmeans_accuracy(embs, labels)
     is_calc = InceptionScoreCalculator(device=device)
     is_mean, is_std = is_calc.compute(gen_imgs)
     eisc_score = None
