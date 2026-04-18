@@ -65,16 +65,17 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
             synset_to_id[synset] = len(synset_to_id)
         img_array = None
         if image_dir:
-            img_path = os.path.join(image_dir, f"{synset}_{img_id}.JPEG")
-            if not os.path.exists(img_path):
-                alt_paths = glob.glob(os.path.join(image_dir, "**", f"{synset}_{img_id}.JPEG"), recursive=True)
-                if alt_paths: img_path = alt_paths[0]
-            if os.path.exists(img_path):
-                try:
-                    img = Image.open(img_path).convert('RGB')
-                    img = img.resize((config.IMAGE_SIZE, config.IMAGE_SIZE))
-                    img_array = np.array(img, dtype=np.uint8)
-                except: continue
+            for ext in [".JPEG", ".jpg", ".png"]:
+                img_path = os.path.join(image_dir, synset, f"{synset}_{img_id}{ext}")
+                if not os.path.exists(img_path):
+                    img_path = os.path.join(image_dir, f"{synset}_{img_id}{ext}")
+                if os.path.exists(img_path):
+                    try:
+                        img = Image.open(img_path).convert('RGB')
+                        img = img.resize((config.IMAGE_SIZE, config.IMAGE_SIZE))
+                        img_array = np.array(img, dtype=np.uint8)
+                        break
+                    except: continue
         if image_dir and img_array is None: continue
         try:
             with open(fpath, 'r') as f:
