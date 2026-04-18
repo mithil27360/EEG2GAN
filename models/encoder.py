@@ -51,8 +51,11 @@ class TransformerEEGEncoder(nn.Module):
         nn.init.zeros_(self.input_proj.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, C, T = x.shape
-        x = x.permute(0, 2, 1)
+        if x.shape[1] == self.seq_len:
+            B, T, C = x.shape
+        else:
+            B, C, T = x.shape
+            x = x.permute(0, 2, 1)
         x = self.input_proj(x)
         if self.pooling == "cls":
             cls = self.cls_token.expand(B, -1, -1)
@@ -91,7 +94,8 @@ class LSTMEEGEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x.permute(0, 2, 1)
+        if x.shape[-1] == config.SEQ_LEN:
+            x = x.permute(0, 2, 1)
         _, (h_n, _) = self.lstm(x)
         h = h_n[-1]
         return self.output_proj(h)
