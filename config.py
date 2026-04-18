@@ -5,7 +5,10 @@ BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
 IS_KAGGLE = os.path.exists("/kaggle/input")
 
 if IS_KAGGLE:
-    DATA_DIR       = "/kaggle/input/eeg2image-dataset"
+    if os.path.exists("/kaggle/input/eeg2image-dataset"):
+        DATA_DIR = "/kaggle/input/eeg2image-dataset"
+    else:
+        DATA_DIR = "/kaggle/working/data"
     CHECKPOINT_DIR = "/kaggle/working/checkpoints"
     OUTPUT_DIR     = "/kaggle/working/outputs"
     FIGURES_DIR    = "/kaggle/working/figures"
