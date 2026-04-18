@@ -10,7 +10,7 @@ class EEGDataset(Dataset):
     def __init__(self, eeg_path, label_path):
         self.eeg = np.load(eeg_path).astype(np.float32)
         self.labels = np.load(label_path).astype(np.int64)
-        if self.eeg.shape[1] != config.N_CHANNELS:
+        if self.eeg.shape[2] != config.SEQ_LEN:
             self.eeg = self.eeg.transpose(0, 2, 1)
 
     def __len__(self):
@@ -39,7 +39,7 @@ class EEGImageDataset(Dataset):
         self.eeg = np.load(eeg_path).astype(np.float32)
         self.labels = np.load(label_path).astype(np.int64)
         self.images = np.load(image_path)
-        if self.eeg.shape[1] != config.N_CHANNELS:
+        if self.eeg.shape[2] != config.SEQ_LEN:
             self.eeg = self.eeg.transpose(0, 2, 1)
         if self.images.shape[-1] == 3:
             self.images = self.images.transpose(0, 3, 1, 2)
