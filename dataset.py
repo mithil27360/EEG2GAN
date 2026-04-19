@@ -92,7 +92,7 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
                 t_indices = self.label_to_indices[lbl]
                 indices.extend(np.random.choice(t_indices, self.n_per_class, replace=True))
             np.random.shuffle(indices)
-            yield from indices[:self.batch_size]
+            yield indices[:self.batch_size]
 
     def __len__(self):
         return (len(self.labels) // self.batch_size) * self.batch_size
