@@ -1,7 +1,12 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import config
+
+class L2Norm(nn.Module):
+    def forward(self, x):
+        return F.normalize(x, p=2, dim=1)
 
 class TransformerEEGEncoder(nn.Module):
     def __init__(
@@ -33,13 +38,16 @@ class TransformerEEGEncoder(nn.Module):
             nhead           = n_heads,
             dim_feedforward = ff_dim,
             dropout         = dropout,
-            activation      = "relu",
+            activation      = "gelu",
             batch_first     = True,
+            norm_first      = True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+        # No ReLU at end — unit-normalized embeddings are all directions
         self.output_proj = nn.Sequential(
             nn.Linear(embed_dim, out_dim),
-            nn.ReLU(),
+            nn.LayerNorm(out_dim),
+            L2Norm(),
         )
         self._init_weights()
 
@@ -55,16 +63,13 @@ class TransformerEEGEncoder(nn.Module):
         if x.shape[-1] != self.input_proj.in_features:
             if x.shape[1] == self.input_proj.in_features:
                 x = x.permute(0, 2, 1)
-            else:
-                # Fallback or error
-                pass
-        
+
         B, T, C = x.shape
         x = self.input_proj(x)
         if self.pooling == "cls":
             cls = self.cls_token.expand(B, -1, -1)
             x   = torch.cat([cls, x], dim=1)
-        x = x + self.pos_embed
+        x = x + self.pos_embed[:, :x.size(1), :]
         x = self.transformer(x)
         if self.pooling == "cls":
             x = x[:, 0, :]
@@ -79,10 +84,10 @@ class LSTMEEGEncoder(nn.Module):
     def __init__(
         self,
         n_channels= config.N_CHANNELS,
-        hidden_dim= 128,
+        hidden_dim= 256,
         out_dim= config.OUT_DIM,
-        num_layers= 1,
-        dropout= 0.0,
+        num_layers= 2,
+        dropout= 0.1,
     ):
         super().__init__()
         self.lstm = nn.LSTM(
@@ -91,10 +96,13 @@ class LSTMEEGEncoder(nn.Module):
             num_layers   = num_layers,
             batch_first  = True,
             dropout      = dropout if num_layers > 1 else 0,
+            bidirectional= True,
         )
+        # Bidirectional doubles hidden size
         self.output_proj = nn.Sequential(
-            nn.Linear(hidden_dim, out_dim),
-            nn.ReLU(),
+            nn.Linear(hidden_dim * 2, out_dim),
+            nn.LayerNorm(out_dim),
+            L2Norm(),
         )
 
     def forward(self, x):
@@ -102,11 +110,11 @@ class LSTMEEGEncoder(nn.Module):
         if x.shape[-1] != self.lstm.input_size:
             if x.shape[1] == self.lstm.input_size:
                 x = x.permute(0, 2, 1)
-            else:
-                pass
-        
+
         _, (h_n, _) = self.lstm(x)
-        h = h_n[-1]
+        # h_n: (num_layers*2, B, hidden) for bidirectional
+        # Concatenate last forward and backward hidden states
+        h = torch.cat([h_n[-2], h_n[-1]], dim=1)
         return self.output_proj(h)
 
     def count_parameters(self):

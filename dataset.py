@@ -95,7 +95,7 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
             yield indices[:self.batch_size]
 
     def __len__(self):
-        return (len(self.labels) // self.batch_size) * self.batch_size
+        return len(self.labels) // self.batch_size
 
 def get_eeg_loaders(eeg_path, label_path, batch_size, val_split=0.2, seed=999, transform=None):
     full_ds = EEGDataset(eeg_path, label_path, transform=transform, 

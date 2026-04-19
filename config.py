@@ -61,12 +61,12 @@ SEQ_LEN     = 128
 N_CLASSES_OBJECTS = 10
 N_CLASSES_CHARS   = 10
 
-EMBED_DIM   = 64
+EMBED_DIM   = 128
 N_HEADS     = 4
-N_LAYERS    = 2
-FF_DIM      = 128
+N_LAYERS    = 3
+FF_DIM      = 256
 DROPOUT     = 0.1
-OUT_DIM     = 128
+OUT_DIM     = 256
 
 # --- EEG Advanced Pipeline ---
 EEG_SAMPLING_RATE   = 128   # For Emotiv Insight (MindBigData ImageNet)
@@ -80,19 +80,19 @@ EEG_WINDOW_SIZE     = 128
 EEG_WINDOW_STRIDE   = 64
 EEG_NORMALIZE       = True
 BALANCED_SAMPLING   = True
-SAMPLES_PER_CLASS   = 4
+SAMPLES_PER_CLASS   = 8
 # ----------------------------
 
-MARGIN      = 0.2
+MARGIN      = 0.3
 
 ENC_LR          = 3e-4
 ENC_WEIGHT_DECAY= 1e-4
 ENC_BATCH_SIZE  = 32
 ENC_EPOCHS      = 500
-ENC_PATIENCE    = 50
+ENC_PATIENCE    = 80
 
 NOISE_DIM   = 100
-EEG_FEAT_DIM= 128
+EEG_FEAT_DIM= 256
 Z_DIM       = NOISE_DIM + EEG_FEAT_DIM
 
 IMAGE_SIZE  = 128

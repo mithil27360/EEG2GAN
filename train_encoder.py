@@ -6,12 +6,14 @@ import time
 from pathlib import Path
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import config
 from dataset import get_eeg_loaders, DummyEEGDataset
 from models.encoder import TransformerEEGEncoder, LSTMEEGEncoder
-from utils.triplet_loss import batch_semi_hard_triplet_loss
+from utils.triplet_loss import SupConLoss
 from utils.metrics import kmeans_accuracy
 
 def parse_args():
@@ -31,15 +33,19 @@ def parse_args():
     p.add_argument("--patience", type=int,   default=config.ENC_PATIENCE)
     p.add_argument("--tag",      type=str,   default="")
     p.add_argument("--resume",   type=str,   default="")
+    p.add_argument("--no_diffaug", action="store_true")
     return p.parse_args()
 
 @torch.no_grad()
 def extract_embeddings(encoder, loader, device):
     encoder.eval()
     embs, lbls = [], []
-    for eeg, label in loader:
+    for batch in loader:
+        eeg, label = batch[0], batch[1]
         eeg = eeg.to(device)
         feat = encoder(eeg)
+        # Encoder already L2-normalizes output, but re-normalize to be safe
+        feat = F.normalize(feat, p=2, dim=1)
         embs.append(feat.cpu().numpy())
         lbls.append(label.numpy())
     return np.concatenate(embs), np.concatenate(lbls)
@@ -77,12 +83,19 @@ def train(args):
             mask_len=config.EEG_AUG_MASK_LEN
         )
         train_loader, val_loader = get_eeg_loaders(
-            eeg_path, label_path, 
+            eeg_path, label_path,
             batch_size=args.batch_size,
             transform=transform
         )
 
     n_channels = 5 if args.dataset == "imagenet" else 14
+    n_classes  = {
+        "objects":     config.N_CLASSES_OBJECTS,
+        "characters":  config.N_CLASSES_CHARS,
+        "mindbigdata": 10,
+        "imagenet":    40,  # MindBigData ImageNet has ~40 classes
+    }.get(args.dataset, 10)
+
     if args.encoder == "transformer":
         encoder = TransformerEEGEncoder(
             n_channels = n_channels,
@@ -98,8 +111,16 @@ def train(args):
     else:
         encoder = LSTMEEGEncoder(n_channels=n_channels).to(device)
 
-    optimizer = optim.Adam(encoder.parameters(), lr=args.lr, weight_decay=config.ENC_WEIGHT_DECAY)
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
+    # Lightweight classification head — provides strong auxiliary gradient signal.
+    # Discarded after training; only the encoder weights are saved.
+    ce_head = nn.Linear(config.OUT_DIM, n_classes).to(device)
+
+    supcon_loss_fn = SupConLoss(temperature=0.07)
+    ce_loss_fn     = nn.CrossEntropyLoss()
+
+    all_params = list(encoder.parameters()) + list(ce_head.parameters())
+    optimizer  = optim.AdamW(all_params, lr=args.lr, weight_decay=config.ENC_WEIGHT_DECAY)
+    scheduler  = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
 
     start_epoch  = 0
     best_kmeans  = 0.0
@@ -111,7 +132,7 @@ def train(args):
         best_kmeans = ckpt.get("best_kmeans", 0.0)
 
     os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
-    tag_str  = f"_{args.tag}" if args.tag else ""
+    tag_str   = f"_{args.tag}" if args.tag else ""
     ckpt_path = os.path.join(config.CHECKPOINT_DIR, f"encoder_{args.encoder}_{args.dataset}{tag_str}.pth")
 
     patience_ctr = 0
@@ -119,15 +140,23 @@ def train(args):
 
     for epoch in range(start_epoch, args.epochs):
         encoder.train()
+        ce_head.train()
         epoch_loss = 0.0
         n_batches  = 0
-        for eeg, labels in train_loader:
+        for batch in train_loader:
+            eeg, labels = batch[0], batch[1]
             eeg, labels = eeg.to(device), labels.to(device)
             optimizer.zero_grad()
-            feat = encoder(eeg)
-            loss = batch_semi_hard_triplet_loss(feat, labels, margin=args.margin)
+
+            feat = encoder(eeg)              # L2-normalized (B, OUT_DIM)
+            logits = ce_head(feat)           # (B, n_classes)
+
+            loss_supcon = supcon_loss_fn(feat, labels)
+            loss_ce     = ce_loss_fn(logits, labels)
+            loss = 0.7 * loss_supcon + 0.3 * loss_ce
+
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(encoder.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
             optimizer.step()
             epoch_loss += loss.item()
             n_batches  += 1

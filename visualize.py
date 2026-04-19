@@ -91,7 +91,6 @@ def plot_image_grid(real_images_by_class, lstm_images_by_class, transformer_imag
                 ax = axes[row][col]
                 if col < len(imgs): ax.imshow(imgs[col])
                 ax.axis("off")
-        plt.tight_layout()
         path = os.path.join(config.FIGURES_DIR, f"fig3_grid_class{cls_idx}.png")
         if save: plt.savefig(path, dpi=100, bbox_inches="tight")
         plt.close()
