@@ -100,19 +100,20 @@ NC          = 3
 NGF         = 64
 NDF         = 64
 
-GAN_LR_G    = 0.0002
-GAN_LR_D    = 0.0002
-BETA1       = 0.5
+GAN_LR_G    = 0.0001
+GAN_LR_D    = 0.0001
+BETA1       = 0.0
 BETA2       = 0.999
-GAN_BATCH_SIZE = 16
-GAN_EPOCHS  = 200
-LAMBDA_MS   = 1.0
-LEAKY_SLOPE = 0.2
+GAN_BATCH_SIZE = 32
+GAN_EPOCHS  = 300
+LAMBDA_MS   = 2.0
+LEAKY_SLOPE = 0.1
 
-DIFFAUG_POLICY = "color,translation"
+DIFFAUG_POLICY = "color,translation,cutout"
 
-KMEANS_N_INIT   = 10
+KMEANS_N_INIT   = 20
 IS_SPLITS       = 10
+IS_N_SAMPLES    = 2048
 CLIP_MODEL      = "openai/clip-vit-base-patch32"
 
 SEED = 999

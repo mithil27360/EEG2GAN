@@ -17,8 +17,8 @@ def parse_args():
     p.add_argument("--encoder_type", choices=["transformer", "lstm"], default="transformer")
     p.add_argument("--dataset",      choices=["objects", "characters", "mindbigdata", "imagenet"], default="objects")
     p.add_argument("--dummy",        action="store_true")
-    p.add_argument("--batch_size",   type=int, default=16)
-    p.add_argument("--n_gen",        type=int, default=230)
+    p.add_argument("--batch_size",   type=int, default=32)
+    p.add_argument("--n_gen",        type=int, default=getattr(config, 'IS_N_SAMPLES', 2048))
     p.add_argument("--no_eisc",      action="store_true")
     p.add_argument("--output_csv",   type=str, default="")
     return p.parse_args()
@@ -95,7 +95,8 @@ def evaluate(args):
     fid_calc = FIDCalculator(device=device)
     fid_score = fid_calc.compute(gen_imgs, real_imgs)
     
-    print(f"Results: IS={is_mean:.4f}, KM={km_acc:.4f}, FID={fid_score:.4f}")
+    eisc_str = f", EISC={eisc_score:.4f}" if eisc_score is not None else ""
+    print(f"Results: IS={is_mean:.4f}, KM={km_acc:.4f}, FID={fid_score:.4f}{eisc_str}")
     if args.output_csv:
         import csv
         fieldnames = ["method", "dataset", "IS_mean", "IS_std", "kmeans", "EISC", "FID"]
