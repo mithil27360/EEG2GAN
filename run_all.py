@@ -18,7 +18,7 @@ def parse_args():
     return p.parse_args()
 
 def run(cmd, label=""):
-    print(f"\n  ▶ {label}")
+    print(f"\n   {label}")
     ret = subprocess.run(cmd)
     return ret.returncode == 0
 

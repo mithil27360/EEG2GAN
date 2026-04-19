@@ -7,14 +7,17 @@ from PIL import Image
 import config
 
 def _fix_eeg_shape(eeg):
+    if eeg.size == 0:
+        return eeg
     if eeg.ndim == 2:
         eeg = eeg[np.newaxis, ...]
+    if eeg.ndim < 3:
+        return eeg
+        
     if eeg.shape[1] == config.SEQ_LEN and eeg.shape[2] != config.SEQ_LEN:
         eeg = eeg.transpose(0, 2, 1)
     elif eeg.shape[2] == config.SEQ_LEN and eeg.shape[1] != config.SEQ_LEN:
         pass
-    elif eeg.shape[1] == config.SEQ_LEN:
-        eeg = eeg.transpose(0, 2, 1)
     return eeg
 
 class EEGDataset(Dataset):

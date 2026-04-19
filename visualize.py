@@ -54,9 +54,9 @@ def plot_ablation_bars(config_names, IS_scores, EISC_scores, kmeans_scores, save
     x = np.arange(len(config_names))
     width = 0.25
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(x - width, IS_scores, width, label="IS ↑")
-    ax.bar(x, EISC_scores, width, label="EISC ↑")
-    ax.bar(x + width, kmeans_scores, width, label="k-means acc ↑")
+    ax.bar(x - width, IS_scores, width, label="IS ")
+    ax.bar(x, EISC_scores, width, label="EISC ")
+    ax.bar(x + width, kmeans_scores, width, label="k-means acc ")
     ax.set_xticks(x)
     ax.set_xticklabels(config_names, rotation=20, ha="right")
     ax.legend(); ax.grid(axis="y", alpha=0.3)
@@ -71,8 +71,8 @@ def plot_eisc_vs_is(IS_list, EISC_list, labels_list, save=True):
     fig, ax = plt.subplots(figsize=(7, 5))
     for is_val, eisc_val, label in zip(IS_list, EISC_list, labels_list):
         ax.scatter(is_val, eisc_val, s=120, label=label)
-    ax.set_xlabel("IS ↑")
-    ax.set_ylabel("EISC ↑")
+    ax.set_xlabel("IS ")
+    ax.set_ylabel("EISC ")
     ax.legend(); ax.grid(alpha=0.3)
     plt.tight_layout()
     path = os.path.join(config.FIGURES_DIR, "fig7_eisc_vs_is.png")

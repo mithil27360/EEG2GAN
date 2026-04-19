@@ -55,11 +55,31 @@ def kmeans_accuracy(
     n_init     : int = config.KMEANS_N_INIT,
     seed       : int = config.SEED,
 ) -> float:
+    import warnings
+    from sklearn.exceptions import ConvergenceWarning
+    
+    if len(embeddings) < 2:
+        return 0.0
+        
     if n_clusters is None:
         n_clusters = len(np.unique(labels))
-    n_clusters = min(n_clusters, len(embeddings) // 5, 50)
+    
+    n_samples = embeddings.shape[0]
+    n_clusters = min(n_clusters, n_samples)
+    
+    if n_clusters > 50:
+        n_clusters = 50 
+
     km = KMeans(n_clusters=n_clusters, n_init=n_init, random_state=seed)
-    cluster_ids = km.fit_predict(embeddings)
+    
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ConvergenceWarning)
+        try:
+            cluster_ids = km.fit_predict(embeddings)
+        except Exception as e:
+            print(f"KMeans Error: {e}")
+            return 0.0
+
     cluster_to_label = {}
     for c in range(n_clusters):
         mask = cluster_ids == c
@@ -67,6 +87,7 @@ def kmeans_accuracy(
             cluster_to_label[c] = 0
             continue
         cluster_to_label[c] = int(np.bincount(labels[mask]).argmax())
+    
     predicted = np.array([cluster_to_label[c] for c in cluster_ids])
     return float(accuracy_score(labels, predicted))
 

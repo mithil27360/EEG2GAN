@@ -43,9 +43,14 @@ def process_mnist(raw_file_path, output_dir):
 
 def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None):
     print(f"Processing ImageNet EEG from: {csv_dir}")
-    csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
+    csv_files = glob.glob(os.path.join(csv_dir, "**", "*.csv"), recursive=True)
+    if not csv_files:
+        print(f"Error: No CSV files found in {csv_dir}")
+        return
+
     data_list, labels_list, imgs_list = [], [], []
     synset_to_id, id_to_word = {}, {}
+    
     if word_report_path and os.path.exists(word_report_path):
         with open(word_report_path, 'r') as f:
             for line in f:
@@ -56,33 +61,53 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                         idx = len(synset_to_id)
                         synset_to_id[synset] = idx
                         id_to_word[idx] = word
+
     channel_map = {ch: i for i, ch in enumerate(config.INSIGHT_CHANNELS)}
-    for fpath in tqdm(csv_files):
+    missing_images_count = 0
+    found_images_count = 0
+
+    for fpath in tqdm(csv_files, desc="Processing CSVs"):
         fname = os.path.basename(fpath)
         parts = fname.split('_')
+        if len(parts) < 5: continue
+        
         synset, img_id = parts[3], parts[4]
         if synset not in synset_to_id:
             synset_to_id[synset] = len(synset_to_id)
+            
         img_array = None
         if image_dir:
-            for ext in [".JPEG", ".jpg", ".png"]:
-                img_path = os.path.join(image_dir, synset, f"{synset}_{img_id}{ext}")
-                if not os.path.exists(img_path):
-                    img_path = os.path.join(image_dir, f"{synset}_{img_id}{ext}")
-                if os.path.exists(img_path):
-                    try:
-                        img = Image.open(img_path).convert('RGB')
-                        img = img.resize((config.IMAGE_SIZE, config.IMAGE_SIZE))
-                        img_array = np.array(img, dtype=np.uint8)
-                        break
-                    except: continue
-        if image_dir and img_array is None: continue
+            if not os.path.exists(image_dir):
+                print(f"Error: image_dir {image_dir} does not exist!")
+                image_dir = None
+            else:
+                possible_paths = [
+                    os.path.join(image_dir, synset, f"{synset}_{img_id}.JPEG"),
+                    os.path.join(image_dir, synset, f"{synset}_{img_id}.jpg"),
+                    os.path.join(image_dir, f"{synset}_{img_id}.JPEG"),
+                    os.path.join(image_dir, f"{synset}_{img_id}.jpg"),
+                ]
+                for p in possible_paths:
+                    if os.path.exists(p):
+                        try:
+                            img = Image.open(p).convert('RGB')
+                            img = img.resize((config.IMAGE_SIZE, config.IMAGE_SIZE))
+                            img_array = np.array(img, dtype=np.uint8)
+                            found_images_count += 1
+                            break
+                        except: continue
+        
+        if image_dir and img_array is None:
+            missing_images_count += 1
+            continue
+
         try:
             with open(fpath, 'r') as f:
                 ch_array = np.zeros((5, config.SEQ_LEN), dtype=np.float32)
                 found_channels = 0
                 for line in f:
                     line_parts = line.strip().split(',')
+                    if len(line_parts) < 2: continue
                     ch_name = line_parts[0]
                     if ch_name in channel_map:
                         vals = [float(x) for x in line_parts[1:]]
@@ -93,20 +118,31 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                             vals = vals + [0.0] * (config.SEQ_LEN - len(vals))
                         ch_array[channel_map[ch_name]] = vals
                         found_channels += 1
+                
                 if found_channels == 5:
                     data_list.append(ch_array)
                     labels_list.append(synset_to_id[synset])
                     if image_dir: imgs_list.append(img_array)
         except: continue
+
+    if missing_images_count > 0:
+        print(f"Note: {missing_images_count} samples skipped because images were not found.")
+    
+    if not data_list:
+        print("Error: No samples were successfully processed!")
+        return
+
     os.makedirs(output_dir, exist_ok=True)
     np.save(os.path.join(output_dir, "eeg_signals.npy"), np.array(data_list))
     np.save(os.path.join(output_dir, "labels.npy"), np.array(labels_list))
-    if image_dir: np.save(os.path.join(output_dir, "images.npy"), np.array(imgs_list))
+    if image_dir: 
+        np.save(os.path.join(output_dir, "images.npy"), np.array(imgs_list))
+    
     meta = {"synset_to_id": synset_to_id, "id_to_word": id_to_word}
     with open(os.path.join(output_dir, "metadata.json"), 'w') as jf:
         import json
         json.dump(meta, jf)
-    print(f"Saved {len(data_list)} samples to {output_dir}")
+    print(f"Successfully saved {len(data_list)} samples to {output_dir}")
 
 if __name__ == "__main__":
     import argparse

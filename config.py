@@ -18,6 +18,18 @@ else:
     OUTPUT_DIR     = os.path.join(BASE_DIR, "outputs")
     FIGURES_DIR    = os.path.join(BASE_DIR, "figures")
 
+IMAGENET_DIR = "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
+if not os.path.exists(IMAGENET_DIR):
+    alt_paths = [
+        "/kaggle/input/imagenet-1k/train",
+        "/kaggle/input/imagenet/train",
+        os.path.join(DATA_DIR, "imagenet", "train")
+    ]
+    for p in alt_paths:
+        if os.path.exists(p):
+            IMAGENET_DIR = p
+            break
+
 THOUGHTVIZ_EEG_OBJECTS    = os.path.join(DATA_DIR, "thoughtviz", "object", "eeg_signals.npy")
 THOUGHTVIZ_LABELS_OBJECTS = os.path.join(DATA_DIR, "thoughtviz", "object", "labels.npy")
 THOUGHTVIZ_IMAGES_OBJECTS = os.path.join(DATA_DIR, "thoughtviz", "object", "images.npy")
