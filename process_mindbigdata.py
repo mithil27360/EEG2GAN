@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from PIL import Image
+from scipy.signal import butter, filtfilt, iirnotch
 import config
 
 def process_mnist(raw_file_path, output_dir):
@@ -40,6 +41,20 @@ def process_mnist(raw_file_path, output_dir):
     np.save(os.path.join(output_dir, "eeg_signals.npy"), np.array(data_list))
     np.save(os.path.join(output_dir, "labels.npy"), np.array(labels_list))
     print(f"Saved {len(data_list)} MNIST samples to {output_dir}")
+
+def apply_filters(data, fs=config.EEG_SAMPLING_RATE):
+    # Bandpass filter
+    nyq = 0.5 * fs
+    low = config.EEG_BANDPASS_FREQ[0] / nyq
+    high = config.EEG_BANDPASS_FREQ[1] / nyq
+    b, a = butter(4, [low, high], btype='band')
+    data = filtfilt(b, a, data, axis=-1)
+    
+    # Notch filter
+    w0 = config.EEG_NOTCH_FREQ / nyq
+    b, a = iirnotch(w0, 30.0)
+    data = filtfilt(b, a, data, axis=-1)
+    return data
 
 def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None):
     print(f"Processing ImageNet EEG from: {csv_dir}")
@@ -151,11 +166,27 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                             vals = vals[start : start + config.SEQ_LEN]
                         elif len(vals) < config.SEQ_LEN:
                             vals = vals + [0.0] * (config.SEQ_LEN - len(vals))
-                        ch_array[channel_map[ch_name]] = vals
+                        
+                        # Artifact rejection
+                        vals_np = np.array(vals, dtype=np.float32)
+                        if np.max(np.abs(vals_np)) > config.EEG_ARTIFACT_THRESHOLD:
+                            # Skip this channel or clip? Let's skip the whole sample to be safe
+                            found_channels = -1 
+                            break
+                            
+                        ch_array[channel_map[ch_name]] = vals_np
                         found_channels += 1
                 
                 if found_channels >= 3: # Allow partial if most channels found
-                    data_list.append(ch_array)
+                    # Apply cleaning filters
+                    ch_array = apply_filters(ch_array)
+                    
+                    # Channel-wise Z-score Normalization
+                    means = ch_array.mean(axis=1, keepdims=True)
+                    stds = ch_array.std(axis=1, keepdims=True) + 1e-6
+                    ch_array = (ch_array - means) / stds
+                    
+                    data_list.append(ch_array.astype(np.float32))
                     labels_list.append(synset_to_id[synset])
                     if image_dir: imgs_list.append(img_array)
                 else:

@@ -49,6 +49,10 @@ MINDBIGDATA_IMAGENET_EEG    = os.path.join(DATA_DIR, "mindbigdata_imagenet", "ee
 MINDBIGDATA_IMAGENET_LABELS = os.path.join(DATA_DIR, "mindbigdata_imagenet", "labels.npy")
 MINDBIGDATA_IMAGENET_IMAGES = os.path.join(DATA_DIR, "mindbigdata_imagenet", "images.npy")
 
+ERP_BASELINE_WINDOW = [-0.2, 0.0]
+ERP_EPOCH_WINDOW    = [-0.2, 0.8]
+ERP_BASELINE_CORR   = True
+
 EPOC_CHANNELS    = ["AF3", "F7", "F3", "FC5", "T7", "P7", "O1", "O2", "P8", "T8", "FC6", "F4", "F8", "AF4"]
 INSIGHT_CHANNELS = ["AF3", "AF4", "T7", "T8", "Pz"]
 
@@ -65,6 +69,10 @@ DROPOUT     = 0.1
 OUT_DIM     = 128
 
 # --- EEG Advanced Pipeline ---
+EEG_SAMPLING_RATE   = 128   # For Emotiv Insight (MindBigData ImageNet)
+EEG_BANDPASS_FREQ   = [1.0, 50.0]
+EEG_NOTCH_FREQ      = 50.0
+EEG_ARTIFACT_THRESHOLD = 200.0 # uV (absolute)
 EEG_AUG_NOISE_STD   = 0.05
 EEG_AUG_SHIFT_MAX   = 8
 EEG_AUG_MASK_LEN    = 16

@@ -148,6 +148,9 @@ class EEGImageDataset(Dataset):
     def __len__(self): return len(self.labels)
     def __getitem__(self, idx):
         eeg = torch.from_numpy(self.eeg[idx])
+        # If EEG_NORMALIZE is true, we apply z-score. 
+        # Note: process_mindbigdata already does this, but we keep it for robustness
+        # especially for Thoughtviz or other datasets that might not be pre-normalized.
         if config.EEG_NORMALIZE:
             eeg = (eeg - eeg.mean(dim=-1, keepdim=True)) / (eeg.std(dim=-1, keepdim=True) + 1e-6)
         lbl = torch.tensor(self.labels[idx])
