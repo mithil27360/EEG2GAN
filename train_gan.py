@@ -5,6 +5,7 @@ import time
 import numpy as np
 import torch
 import torch.optim as optim
+import sys
 from torch.utils.data import DataLoader
 import config
 from dataset import get_eeg_image_loaders, DummyEEGImageDataset
@@ -43,6 +44,9 @@ def train(args):
             "imagenet"   : (config.MINDBIGDATA_IMAGENET_EEG, config.MINDBIGDATA_IMAGENET_LABELS, config.MINDBIGDATA_IMAGENET_IMAGES),
         }
         eeg_p, lbl_p, img_p = ds_map[args.dataset]
+        if not os.path.exists(eeg_p) or not os.path.exists(img_p):
+            print(f"Error: Dataset files for {args.dataset} not found. Check {eeg_p} and {img_p}")
+            sys.exit(1)
         train_loader, _ = get_eeg_image_loaders(eeg_p, lbl_p, img_p, batch_size=args.batch_size)
 
     n_channels = 5 if args.dataset == "imagenet" else 14
@@ -118,8 +122,11 @@ def train(args):
             epoch_g_loss += lossG_total.item()
             epoch_d_loss += lossD.item()
             n_batches += 1
-        history["G_loss"].append(epoch_g_loss / n_batches)
-        history["D_loss"].append(epoch_d_loss / n_batches)
+        avg_g_loss = epoch_g_loss / n_batches
+        avg_d_loss = epoch_d_loss / n_batches
+        history["G_loss"].append(avg_g_loss)
+        history["D_loss"].append(avg_d_loss)
+        print(f"Epoch {epoch+1}/{args.epochs} - G_Loss: {avg_g_loss:.4f} - D_Loss: {avg_d_loss:.4f}", flush=True)
 
     torch.save({
         "epoch": args.epochs,

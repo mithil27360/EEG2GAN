@@ -56,7 +56,7 @@ def train(args):
         full_ds = DummyEEGDataset(n_samples=230, n_classes=10)
         train_ds, val_ds = random_split(full_ds, [184, 46],
                                         generator=torch.Generator().manual_seed(config.SEED))
-        train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)
+        train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
         val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, shuffle=False)
     else:
         eeg_map = {
@@ -66,12 +66,27 @@ def train(args):
             "imagenet"   : (config.MINDBIGDATA_IMAGENET_EEG, config.MINDBIGDATA_IMAGENET_LABELS),
         }
         eeg_path, label_path = eeg_map[args.dataset]
-        train_loader, val_loader = get_eeg_loaders(eeg_path, label_path, batch_size=args.batch_size)
+        if not os.path.exists(eeg_path):
+            print(f"Error: EEG file {eeg_path} not found. Did you run the preprocessing script?")
+            sys.exit(1)
+
+        from dataset import EEGTransform
+        transform = EEGTransform(
+            noise_std=config.EEG_AUG_NOISE_STD,
+            shift_max=config.EEG_AUG_SHIFT_MAX,
+            mask_len=config.EEG_AUG_MASK_LEN
+        )
+        train_loader, val_loader = get_eeg_loaders(
+            eeg_path, label_path, 
+            batch_size=args.batch_size,
+            transform=transform
+        )
 
     n_channels = 5 if args.dataset == "imagenet" else 14
     if args.encoder == "transformer":
         encoder = TransformerEEGEncoder(
             n_channels = n_channels,
+            seq_len   = config.EEG_WINDOW_SIZE,
             embed_dim = args.embed_dim,
             n_heads   = args.n_heads,
             n_layers  = args.n_layers,
@@ -119,9 +134,12 @@ def train(args):
         scheduler.step()
         avg_loss = epoch_loss / max(n_batches, 1)
 
+        print(f"Epoch {epoch+1}/{args.epochs} - Loss: {avg_loss:.4f}", end="")
+
         if (epoch + 1) % 10 == 0 or epoch == 0:
             embs, lbls = extract_embeddings(encoder, val_loader, device)
             val_km = kmeans_accuracy(embs, lbls)
+            print(f" - Val K-Means: {val_km:.4f}", end="")
             if val_km > best_kmeans:
                 best_kmeans = val_km
                 patience_ctr = 0
@@ -135,11 +153,14 @@ def train(args):
             else:
                 patience_ctr += 1
             if patience_ctr >= (args.patience // 10):
+                print(f"\nEarly stopping at epoch {epoch+1}")
                 break
+        print("", flush=True)
 
     embs, lbls = extract_embeddings(encoder, val_loader, device)
     np.save(os.path.join(config.CHECKPOINT_DIR, f"embeddings_{args.encoder}_{args.dataset}{tag_str}.npy"), embs)
     np.save(os.path.join(config.CHECKPOINT_DIR, f"labels_{args.dataset}.npy"), lbls)
+    print(f"Training finished. Best Val K-Means: {best_kmeans:.4f}")
     return ckpt_path, best_kmeans
 
 if __name__ == "__main__":

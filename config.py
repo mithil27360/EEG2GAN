@@ -20,9 +20,12 @@ else:
 
 IMAGENET_DIR = "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
 if not os.path.exists(IMAGENET_DIR):
+    # Try alternate Kaggle paths
     alt_paths = [
+        "/kaggle/input/competitions/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train",
         "/kaggle/input/imagenet-1k/train",
         "/kaggle/input/imagenet/train",
+        "/kaggle/input/imagenet-object-localization-challenge/train",
         os.path.join(DATA_DIR, "imagenet", "train")
     ]
     for p in alt_paths:
@@ -60,6 +63,17 @@ N_LAYERS    = 2
 FF_DIM      = 128
 DROPOUT     = 0.1
 OUT_DIM     = 128
+
+# --- EEG Advanced Pipeline ---
+EEG_AUG_NOISE_STD   = 0.05
+EEG_AUG_SHIFT_MAX   = 8
+EEG_AUG_MASK_LEN    = 16
+EEG_WINDOW_SIZE     = 128
+EEG_WINDOW_STRIDE   = 64
+EEG_NORMALIZE       = True
+BALANCED_SAMPLING   = True
+SAMPLES_PER_CLASS   = 4
+# ----------------------------
 
 MARGIN      = 0.2
 

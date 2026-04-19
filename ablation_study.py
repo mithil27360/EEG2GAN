@@ -25,8 +25,12 @@ def parse_args():
     p.add_argument("--output_csv",  type=str, default="ablation_results.csv")
     return p.parse_args()
 
-def run_cmd(cmd):
+def run_cmd(cmd, label=""):
+    if label: print(f"  > {label}...")
     result = subprocess.run(cmd, capture_output=False, text=True)
+    if label:
+        status = "Completed" if result.returncode == 0 else "FAILED"
+        print(f"  > {label} {status}")
     return result.returncode == 0
 
 def main():

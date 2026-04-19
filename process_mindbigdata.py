@@ -65,13 +65,32 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
     channel_map = {ch: i for i, ch in enumerate(config.INSIGHT_CHANNELS)}
     missing_images_count = 0
     found_images_count = 0
+    skipped_csv_count = 0
 
     for fpath in tqdm(csv_files, desc="Processing CSVs"):
         fname = os.path.basename(fpath)
         parts = fname.split('_')
-        if len(parts) < 5: continue
+        if len(parts) < 5: 
+            skipped_csv_count += 1
+            continue
         
-        synset, img_id = parts[3], parts[4]
+        # Filename: MindBigData_Imagenet_Insight_SYNSEID_IMAGEID_CHANNEL_EVENT.csv
+        # OR: MindBigData_Imagenet_Insight_SYNSEID_IMAGEID.csv
+        # Let's try to find synset and image ID by looking for nXXXX
+        synset = None
+        img_id = None
+        for p in parts:
+            if p.startswith('n') and len(p) > 5 and p[1:].isdigit():
+                synset = p
+                # The next part is usually the image ID
+                idx = parts.index(p)
+                if idx + 1 < len(parts):
+                    img_id = parts[idx+1].split('.')[0]
+                break
+        
+        if not synset:
+            skipped_csv_count += 1
+            continue
         if synset not in synset_to_id:
             synset_to_id[synset] = len(synset_to_id)
             
@@ -81,12 +100,18 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                 print(f"Error: image_dir {image_dir} does not exist!")
                 image_dir = None
             else:
+                # Try multiple possible naming conventions for ImageNet
                 possible_paths = [
                     os.path.join(image_dir, synset, f"{synset}_{img_id}.JPEG"),
                     os.path.join(image_dir, synset, f"{synset}_{img_id}.jpg"),
                     os.path.join(image_dir, f"{synset}_{img_id}.JPEG"),
                     os.path.join(image_dir, f"{synset}_{img_id}.jpg"),
                 ]
+                # Also try just the image ID if it looks like a full filename
+                if '.' in img_id:
+                    possible_paths.append(os.path.join(image_dir, synset, img_id))
+                    possible_paths.append(os.path.join(image_dir, img_id))
+
                 for p in possible_paths:
                     if os.path.exists(p):
                         try:
@@ -106,11 +131,21 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                 ch_array = np.zeros((5, config.SEQ_LEN), dtype=np.float32)
                 found_channels = 0
                 for line in f:
-                    line_parts = line.strip().split(',')
+                    line = line.strip()
+                    if not line: continue
+                    # Robust delimiter handling
+                    if ',' in line:
+                        line_parts = line.split(',')
+                    else:
+                        line_parts = line.split('\t')
+                        
                     if len(line_parts) < 2: continue
-                    ch_name = line_parts[0]
+                    ch_name = line_parts[0].strip()
+                    # Remove prefixes like 'EEG.' if present
+                    if '.' in ch_name: ch_name = ch_name.split('.')[-1]
+                    
                     if ch_name in channel_map:
-                        vals = [float(x) for x in line_parts[1:]]
+                        vals = [float(x) for x in line_parts[1:] if x.strip()]
                         if len(vals) > config.SEQ_LEN:
                             start = (len(vals) - config.SEQ_LEN) // 2
                             vals = vals[start : start + config.SEQ_LEN]
@@ -119,23 +154,31 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
                         ch_array[channel_map[ch_name]] = vals
                         found_channels += 1
                 
-                if found_channels == 5:
+                if found_channels >= 3: # Allow partial if most channels found
                     data_list.append(ch_array)
                     labels_list.append(synset_to_id[synset])
                     if image_dir: imgs_list.append(img_array)
-        except: continue
+                else:
+                    skipped_csv_count += 1
+        except: 
+            skipped_csv_count += 1
+            continue
 
     if missing_images_count > 0:
-        print(f"Note: {missing_images_count} samples skipped because images were not found.")
+        print(f"Note: {missing_images_count} samples skipped because images were not found in {image_dir}")
+    if skipped_csv_count > 0:
+        print(f"Note: {skipped_csv_count} CSV files skipped due to parsing errors or missing channels.")
     
     if not data_list:
         print("Error: No samples were successfully processed!")
+        if image_dir:
+            print("Tip: Try running without --image_dir to see if EEG data alone can be processed.")
         return
 
     os.makedirs(output_dir, exist_ok=True)
     np.save(os.path.join(output_dir, "eeg_signals.npy"), np.array(data_list))
     np.save(os.path.join(output_dir, "labels.npy"), np.array(labels_list))
-    if image_dir: 
+    if len(imgs_list) > 0: 
         np.save(os.path.join(output_dir, "images.npy"), np.array(imgs_list))
     
     meta = {"synset_to_id": synset_to_id, "id_to_word": id_to_word}

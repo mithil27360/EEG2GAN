@@ -75,16 +75,27 @@ def evaluate(args):
     if args.gan_ckpt and os.path.isfile(args.gan_ckpt):
         ckpt = torch.load(args.gan_ckpt, map_location=device)
         netG.load_state_dict(ckpt["G_state"])
+    print(f"Generating {args.n_gen} images for evaluation...")
     gen_imgs, real_imgs, embs, labels = generate_images(encoder, netG, loader, device, args.n_gen)
+    
+    print("Calculating K-Means accuracy...")
     km_acc = kmeans_accuracy(embs, labels)
+    
+    print("Calculating Inception Score...")
     is_calc = InceptionScoreCalculator(device=device)
     is_mean, is_std = is_calc.compute(gen_imgs)
+    
     eisc_score = None
     if not args.no_eisc:
+        print("Calculating EISC...")
         eisc_calc = EISCCalculator(device=device)
         eisc_score = eisc_calc.compute(gen_imgs, real_imgs)
+    
+    print("Calculating FID...")
     fid_calc = FIDCalculator(device=device)
     fid_score = fid_calc.compute(gen_imgs, real_imgs)
+    
+    print(f"Results: IS={is_mean:.4f}, KM={km_acc:.4f}, FID={fid_score:.4f}")
     if args.output_csv:
         import csv
         fieldnames = ["method", "dataset", "IS_mean", "IS_std", "kmeans", "EISC", "FID"]

@@ -19,7 +19,7 @@ if [ ! -d "/kaggle/working/raw_eeg" ]; then
 fi
 
 echo " Locating CSV files..."
-CSV_ROOT=$(find /kaggle/working/raw_eeg -name "*.csv" -print -quit | xargs dirname)
+CSV_ROOT=$(find /kaggle/working/raw_eeg -name "*.csv" | head -n 1 | xargs -r dirname)
 
 if [ -z "$CSV_ROOT" ]; then
     echo " Error: No CSV files found in /kaggle/working/raw_eeg"
@@ -28,15 +28,19 @@ fi
 echo " Found CSVs in: $CSV_ROOT"
 
 echo " Detecting ImageNet..."
-IMAGENET_PATH="/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
+# Use Python to get the path from config.py
+IMAGENET_PATH=$(python -c "import config; print(config.IMAGENET_DIR)")
+
 if [ ! -d "$IMAGENET_PATH" ]; then
-    if [ -d "/kaggle/input/imagenet-1k/train" ]; then
+    echo " Warning: ImageNet path from config ($IMAGENET_PATH) not found."
+    echo " Checking standard Kaggle paths..."
+    if [ -d "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train" ]; then
+        IMAGENET_PATH="/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
+    elif [ -d "/kaggle/input/imagenet-1k/train" ]; then
         IMAGENET_PATH="/kaggle/input/imagenet-1k/train"
-    elif [ -d "/kaggle/input/imagenet/train" ]; then
-        IMAGENET_PATH="/kaggle/input/imagenet/train"
     else
-        echo " Warning: ImageNet training set not found at standard Kaggle paths."
-        echo "   Please ensure the ImageNet dataset is added to your notebook."
+        echo " Warning: ImageNet not found. Will attempt EEG-only processing."
+        IMAGENET_PATH=""
     fi
 fi
 echo " Using ImageNet path: $IMAGENET_PATH"
