@@ -18,7 +18,7 @@ def plot_tsne(emb_transformer, emb_lstm, labels, class_names=None, save=True):
         class_names = [f"Class {i}" for i in range(n_classes)]
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     for ax, emb, title in zip(axes, [emb_lstm, emb_transformer], ["LSTM Encoder (Baseline)", "Transformer Encoder (Ours)"]):
-        tsne  = TSNE(n_components=2, perplexity=min(30, len(emb)//4), random_state=config.SEED, n_iter=1000)
+        tsne  = TSNE(n_components=2, perplexity=min(30, len(emb)//4), random_state=config.SEED, max_iter=1000)
         proj  = tsne.fit_transform(emb)
         for cls_idx in range(n_classes):
             mask = labels == cls_idx

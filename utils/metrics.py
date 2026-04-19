@@ -107,7 +107,16 @@ class EISCCalculator:
             batch  = images[i: i + self.batch_size]
             inputs = self.processor(images=batch, return_tensors="pt",
                                     padding=True).to(self.device)
-            embs   = self.model.get_image_features(**inputs)
+            outputs = self.model.get_image_features(**inputs)
+            # Handle cases where CLIP returns an output object instead of a tensor
+            if hasattr(outputs, "image_embeds"):
+                embs = outputs.image_embeds
+            elif hasattr(outputs, "pooler_output"):
+                embs = outputs.pooler_output
+            elif isinstance(outputs, (list, tuple)):
+                embs = outputs[0]
+            else:
+                embs = outputs
             embs   = F.normalize(embs, p=2, dim=1)
             all_embs.append(embs.cpu().numpy())
         return np.concatenate(all_embs, axis=0)
