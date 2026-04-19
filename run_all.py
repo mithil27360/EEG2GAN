@@ -10,8 +10,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dataset",    choices=["objects", "characters", "mindbigdata", "imagenet"], default="objects")
     p.add_argument("--dummy",      action="store_true")
-    p.add_argument("--enc_epochs", type=int, default=500)
-    p.add_argument("--gan_epochs", type=int, default=200)
+    p.add_argument("--enc_epochs", type=int, default=config.ENC_EPOCHS)
+    p.add_argument("--gan_epochs", type=int, default=config.GAN_EPOCHS)
     p.add_argument("--skip_baseline",  action="store_true")
     p.add_argument("--skip_ablations", action="store_true")
     p.add_argument("--skip_visuals",   action="store_true")
@@ -27,7 +27,8 @@ def main():
     py   = sys.executable
     ds   = args.dataset
     dummy_flag = ["--dummy"] if args.dummy else []
-    eval_flags = ["--n_gen", "230"] if args.dummy else ["--n_gen", "2048"]
+    n_gen_eval = getattr(config, 'IS_N_SAMPLES', 2048)
+    eval_flags = ["--n_gen", "230"] if args.dummy else ["--n_gen", str(n_gen_eval)]
     
     if not args.skip_baseline:
         run([py, "train_encoder.py", "--encoder", "lstm", "--dataset", ds, "--epochs", str(args.enc_epochs), "--tag", "baseline"] + dummy_flag, label="Exp 1a")
