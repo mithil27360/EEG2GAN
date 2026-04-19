@@ -6,15 +6,15 @@ import config
 class TransformerEEGEncoder(nn.Module):
     def __init__(
         self,
-        n_channels : int = config.N_CHANNELS,
-        seq_len    : int = config.SEQ_LEN,
-        embed_dim  : int = config.EMBED_DIM,
-        n_heads    : int = config.N_HEADS,
-        n_layers   : int = config.N_LAYERS,
-        ff_dim     : int = config.FF_DIM,
-        dropout    : float = config.DROPOUT,
-        out_dim    : int = config.OUT_DIM,
-        pooling    : str = "mean",
+        n_channels= config.N_CHANNELS,
+        seq_len= config.SEQ_LEN,
+        embed_dim= config.EMBED_DIM,
+        n_heads= config.N_HEADS,
+        n_layers= config.N_LAYERS,
+        ff_dim= config.FF_DIM,
+        dropout= config.DROPOUT,
+        out_dim= config.OUT_DIM,
+        pooling= "mean",
     ):
         super().__init__()
         assert embed_dim % n_heads == 0
@@ -50,7 +50,7 @@ class TransformerEEGEncoder(nn.Module):
         nn.init.xavier_uniform_(self.input_proj.weight)
         nn.init.zeros_(self.input_proj.bias)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         if x.shape[1] == self.seq_len:
             B, T, C = x.shape
         else:
@@ -74,11 +74,11 @@ class TransformerEEGEncoder(nn.Module):
 class LSTMEEGEncoder(nn.Module):
     def __init__(
         self,
-        n_channels : int = config.N_CHANNELS,
-        hidden_dim : int = 128,
-        out_dim    : int = config.OUT_DIM,
-        num_layers : int = 1,
-        dropout    : float = 0.0,
+        n_channels= config.N_CHANNELS,
+        hidden_dim= 128,
+        out_dim= config.OUT_DIM,
+        num_layers= 1,
+        dropout= 0.0,
     ):
         super().__init__()
         self.lstm = nn.LSTM(
@@ -93,7 +93,7 @@ class LSTMEEGEncoder(nn.Module):
             nn.ReLU(),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         if x.shape[-1] == config.SEQ_LEN:
             x = x.permute(0, 2, 1)
         _, (h_n, _) = self.lstm(x)

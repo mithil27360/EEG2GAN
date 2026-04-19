@@ -48,7 +48,7 @@ AUGMENT_FNS = {
     "cutout"     : [rand_cutout],
 }
 
-def DiffAugment(x: torch.Tensor, policy: str = "color,translation") -> torch.Tensor:
+def DiffAugment(x, policy= "color,translation"):
     if not policy or not policy.strip():
         return x
     for p in policy.split(","):

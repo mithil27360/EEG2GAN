@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-def pairwise_distances(embeddings: torch.Tensor, squared: bool = False) -> torch.Tensor:
+def pairwise_distances(embeddings, squared= False):
     dot   = embeddings @ embeddings.t()
     sq    = dot.diag().unsqueeze(1) + dot.diag().unsqueeze(0)
     dist  = (sq - 2 * dot).clamp(min=0)
@@ -9,7 +9,7 @@ def pairwise_distances(embeddings: torch.Tensor, squared: bool = False) -> torch
         dist = torch.sqrt(dist + 1e-12)
     return dist
 
-def _get_triplet_mask(labels: torch.Tensor) -> torch.Tensor:
+def _get_triplet_mask(labels):
     B = labels.size(0)
     ids = torch.arange(B, device=labels.device)
     distinct   = ids.unsqueeze(0) != ids.unsqueeze(1)
@@ -20,11 +20,11 @@ def _get_triplet_mask(labels: torch.Tensor) -> torch.Tensor:
     return mask
 
 def batch_semi_hard_triplet_loss(
-    embeddings : torch.Tensor,
-    labels     : torch.Tensor,
-    margin     : float = 0.2,
-    squared    : bool  = False,
-) -> torch.Tensor:
+    embeddings,
+    labels,
+    margin= 0.2,
+    squared= False,
+):
     embeddings = F.normalize(embeddings, p=2, dim=1)
     dist_mat = pairwise_distances(embeddings, squared=squared)
     B = dist_mat.size(0)

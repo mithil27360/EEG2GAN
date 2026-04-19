@@ -11,7 +11,7 @@ from PIL import Image
 import config
 
 class InceptionScoreCalculator:
-    def __init__(self, device=None, batch_size: int = 32, splits: int = config.IS_SPLITS):
+    def __init__(self, device=None, batch_size= 32, splits= config.IS_SPLITS):
         self.device     = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.splits     = splits
@@ -25,7 +25,7 @@ class InceptionScoreCalculator:
         ])
 
     @torch.no_grad()
-    def get_predictions(self, images: list[Image.Image]) -> np.ndarray:
+    def get_predictions(self, images):
         all_preds = []
         for i in range(0, len(images), self.batch_size):
             batch = images[i: i + self.batch_size]
@@ -37,7 +37,7 @@ class InceptionScoreCalculator:
             all_preds.append(probs)
         return np.concatenate(all_preds, axis=0)
 
-    def compute(self, images: list[Image.Image]) -> tuple[float, float]:
+    def compute(self, images):
         preds = self.get_predictions(images)
         N     = preds.shape[0]
         split_scores = []
@@ -49,12 +49,12 @@ class InceptionScoreCalculator:
         return float(np.mean(split_scores)), float(np.std(split_scores))
 
 def kmeans_accuracy(
-    embeddings : np.ndarray,
-    labels     : np.ndarray,
-    n_clusters : int | None = None,
-    n_init     : int = config.KMEANS_N_INIT,
-    seed       : int = config.SEED,
-) -> float:
+    embeddings,
+    labels,
+    n_clusters= None,
+    n_init= config.KMEANS_N_INIT,
+    seed= config.SEED,
+):
     import warnings
     from sklearn.exceptions import ConvergenceWarning
     
@@ -92,7 +92,7 @@ def kmeans_accuracy(
     return float(accuracy_score(labels, predicted))
 
 class EISCCalculator:
-    def __init__(self, device=None, batch_size: int = 32):
+    def __init__(self, device=None, batch_size= 32):
         from transformers import CLIPModel, CLIPProcessor
         self.device     = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
@@ -101,7 +101,7 @@ class EISCCalculator:
         self.model.eval()
 
     @torch.no_grad()
-    def _encode_images(self, images: list[Image.Image]) -> np.ndarray:
+    def _encode_images(self, images):
         all_embs = []
         for i in range(0, len(images), self.batch_size):
             batch  = images[i: i + self.batch_size]
@@ -114,9 +114,9 @@ class EISCCalculator:
 
     def compute(
         self,
-        generated_images : list[Image.Image],
-        real_images      : list[Image.Image],
-    ) -> float:
+        generated_images,
+        real_images,
+    ):
         assert len(generated_images) == len(real_images)
         emb_gen  = self._encode_images(generated_images)
         emb_real = self._encode_images(real_images)
@@ -124,7 +124,7 @@ class EISCCalculator:
         return float(cos_sims.mean())
 
 class FIDCalculator:
-    def __init__(self, device=None, batch_size: int = 32):
+    def __init__(self, device=None, batch_size= 32):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.model = models.inception_v3(weights=models.Inception_V3_Weights.DEFAULT)
@@ -138,7 +138,7 @@ class FIDCalculator:
         ])
 
     @torch.no_grad()
-    def _get_features(self, images: list[Image.Image]) -> np.ndarray:
+    def _get_features(self, images):
         feats = []
         for i in range(0, len(images), self.batch_size):
             batch = images[i: i + self.batch_size]
@@ -147,7 +147,7 @@ class FIDCalculator:
             feats.append(f.cpu().numpy())
         return np.concatenate(feats, axis=0)
 
-    def compute(self, gen_images: list[Image.Image], real_images: list[Image.Image]) -> float:
+    def compute(self, gen_images, real_images):
         from scipy.linalg import sqrtm
         f_gen = self._get_features(gen_images)
         f_real = self._get_features(real_images)
@@ -159,7 +159,7 @@ class FIDCalculator:
             covmean = covmean.real
         return float(ssdiff + np.trace(sigma_gen + sigma_real - 2.0 * covmean))
 
-def tensor_to_pil_list(tensor: torch.Tensor) -> list[Image.Image]:
+def tensor_to_pil_list(tensor):
     imgs = []
     arr  = (tensor.detach().cpu().permute(0, 2, 3, 1).numpy() * 0.5 + 0.5)
     arr  = (arr * 255).clip(0, 255).astype(np.uint8)
