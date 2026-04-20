@@ -89,12 +89,24 @@ def train(args):
         )
 
     n_channels = 5 if args.dataset == "imagenet" else 14
-    n_classes  = {
+    n_classes_map = {
         "objects":     config.N_CLASSES_OBJECTS,
         "characters":  config.N_CLASSES_CHARS,
         "mindbigdata": 10,
-        "imagenet":    40,  # MindBigData ImageNet has ~40 classes
-    }.get(args.dataset, 10)
+        "imagenet":    None,   # determined from data below
+    }
+    n_classes = n_classes_map.get(args.dataset, 10)
+
+    # For imagenet, count unique classes from the saved label file
+    if n_classes is None:
+        import numpy as _np
+        _lbl_path = eeg_map[args.dataset][1] if not args.dummy else None
+        if _lbl_path and os.path.exists(_lbl_path):
+            _lbls = _np.load(_lbl_path)
+            n_classes = int(_lbls.max()) + 1  # IDs are 0-indexed sequential
+            print(f"Detected {n_classes} unique classes from labels.npy")
+        else:
+            n_classes = 200   # safe fallback larger than any expected count
 
     if args.encoder == "transformer":
         encoder = TransformerEEGEncoder(

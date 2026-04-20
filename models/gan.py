@@ -7,10 +7,13 @@ import config
 def weights_init(m):
     cls = m.__class__.__name__
     if "Conv" in cls and "SelfAttn" not in cls:
-        nn.init.orthogonal_(m.weight.data)
+        if m.weight is not None:
+            nn.init.orthogonal_(m.weight.data)
     elif "BatchNorm" in cls:
-        nn.init.normal_(m.weight.data, 1.0, 0.02)
-        nn.init.constant_(m.bias.data, 0)
+        if m.weight is not None:
+            nn.init.normal_(m.weight.data, 1.0, 0.02)
+        if m.bias is not None:
+            nn.init.constant_(m.bias.data, 0)
 
 # --------------------------------------------------------------------------- #
 #  Shared building blocks
