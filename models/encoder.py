@@ -6,7 +6,7 @@ import config
 
 class L2Norm(nn.Module):
     def forward(self, x):
-        return F.normalize(x, p=2, dim=1)
+        return F.normalize(x, p=2, dim=1, eps=1e-8)
 
 class TransformerEEGEncoder(nn.Module):
     def __init__(

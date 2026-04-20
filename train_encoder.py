@@ -169,12 +169,13 @@ def train(args):
 
             loss_supcon = supcon_loss_fn(feat, labels)
             loss_ce     = ce_loss_fn(logits, labels)
-            loss = 0.7 * loss_supcon + 0.3 * loss_ce
+            loss = 0.5 * loss_supcon + 0.5 * loss_ce
 
-            # Guard against NaN (can happen early in training with noisy EEG)
+            # Replace any NaN/Inf with 0 so training always progresses.
+            # NaN can occur when zero-padded EEG channels produce zero-norm
+            # vectors; L2Norm eps helps but nan_to_num is the final safety net.
             if not torch.isfinite(loss):
-                optimizer.zero_grad()
-                continue
+                loss = torch.nan_to_num(loss, nan=0.0, posinf=10.0, neginf=0.0)
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
