@@ -65,10 +65,8 @@ def kmeans_accuracy(
         n_clusters = len(np.unique(labels))
     
     n_samples = embeddings.shape[0]
-    n_clusters = min(n_clusters, n_samples)
-    
-    if n_clusters > 50:
-        n_clusters = 50 
+    # At least 4 samples per cluster; hard cap of 200 avoids degenerate centroids
+    n_clusters = min(n_clusters, n_samples // 4, 200)
 
     km = KMeans(n_clusters=n_clusters, n_init=n_init, random_state=seed)
     

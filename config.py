@@ -73,23 +73,25 @@ EEG_SAMPLING_RATE   = 128   # For Emotiv Insight (MindBigData ImageNet)
 EEG_BANDPASS_FREQ   = [1.0, 50.0]
 EEG_NOTCH_FREQ      = 50.0
 EEG_ARTIFACT_THRESHOLD = 5000.0 # uV (absolute, pre-filter ceiling for raw Emotiv Insight)
+EEG_NORMALIZE       = False  # data is already Z-scored by process_mindbigdata.py;
+                             # double-normalization collapses inter-sample variance
 EEG_AUG_NOISE_STD   = 0.05
 EEG_AUG_SHIFT_MAX   = 8
 EEG_AUG_MASK_LEN    = 16
 EEG_WINDOW_SIZE     = 128
-EEG_WINDOW_STRIDE   = 64
-EEG_NORMALIZE       = True
-BALANCED_SAMPLING   = True
-SAMPLES_PER_CLASS   = 8
+EEG_WINDOW_STRIDE   = 128   # no overlap — avoids label-mapping bug in BalancedBatchSampler
+BALANCED_SAMPLING   = False  # random shuffle covers 569 imagenet classes better than
+                             # 4-class-per-batch balanced sampling
+SAMPLES_PER_CLASS   = 4
 # ----------------------------
 
 MARGIN      = 0.3
 
 ENC_LR          = 3e-4
 ENC_WEIGHT_DECAY= 1e-4
-ENC_BATCH_SIZE  = 32
+ENC_BATCH_SIZE  = 64    # larger batch = more stable CE gradient with 569 classes
 ENC_EPOCHS      = 500
-ENC_PATIENCE    = 80
+ENC_PATIENCE    = 150   # 15 non-improving 10-epoch blocks before early stop
 
 NOISE_DIM   = 100
 EEG_FEAT_DIM= 256

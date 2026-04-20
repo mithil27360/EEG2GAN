@@ -190,7 +190,7 @@ def train(args):
                 eeg_feat = encoder(eeg)
 
             # -------- Discriminator update (2 steps per G step) --------
-            for _ in range(2):
+            for d_step in range(2):
                 optimizerD.zero_grad()
                 real_input = DiffAugment(real_imgs, policy=config.DIFFAUG_POLICY) if not args.no_diffaug else real_imgs
                 real_scores = netD(real_input, eeg_feat.detach())
@@ -202,8 +202,8 @@ def train(args):
                 fake_scores = netD(fake_input, eeg_feat.detach())
 
                 lossD_hinge = hinge_loss_d(real_scores, fake_scores)
-                # R1 penalty every 4 steps for efficiency
-                if i % 4 == 0:
+                # R1 penalty every 4 outer steps, first D-step only (prevents double-penalty)
+                if i % 4 == 0 and d_step == 0:
                     r1 = r1_gradient_penalty(netD, real_imgs.detach().requires_grad_(True), eeg_feat.detach())
                     lossD = lossD_hinge + r1
                 else:

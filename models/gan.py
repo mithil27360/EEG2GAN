@@ -44,8 +44,11 @@ class ConditionalBN(nn.Module):
         self.bn = nn.BatchNorm2d(n_feat, affine=False)
         self.fc_gamma = nn.Linear(cond_dim, n_feat)
         self.fc_beta  = nn.Linear(cond_dim, n_feat)
-        nn.init.ones_(self.fc_gamma.weight)
+        # xavier: each output dim gets a different scaled projection from cond
+        nn.init.xavier_uniform_(self.fc_gamma.weight)
+        nn.init.zeros_(self.fc_gamma.bias)
         nn.init.zeros_(self.fc_beta.weight)
+        nn.init.zeros_(self.fc_beta.bias)
 
     def forward(self, x, cond):
         out   = self.bn(x)
