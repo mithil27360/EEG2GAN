@@ -126,9 +126,13 @@ def train(args):
     # Lightweight classification head — provides strong auxiliary gradient signal.
     # Discarded after training; only the encoder weights are saved.
     ce_head = nn.Linear(config.OUT_DIM, n_classes).to(device)
+    # Scale down init weights so logits start small — prevents log_softmax underflow on NaN
+    with torch.no_grad():
+        ce_head.weight.mul_(0.1)
+        ce_head.bias.zero_()
 
-    supcon_loss_fn = SupConLoss(temperature=0.07)
-    ce_loss_fn     = nn.CrossEntropyLoss()
+    supcon_loss_fn = SupConLoss(temperature=0.1)  # 0.07 too sharp for 500+ class noisy EEG
+    ce_loss_fn     = nn.CrossEntropyLoss(label_smoothing=0.1)  # smoothing prevents -inf logits
 
     all_params = list(encoder.parameters()) + list(ce_head.parameters())
     optimizer  = optim.AdamW(all_params, lr=args.lr, weight_decay=config.ENC_WEIGHT_DECAY)
@@ -166,6 +170,11 @@ def train(args):
             loss_supcon = supcon_loss_fn(feat, labels)
             loss_ce     = ce_loss_fn(logits, labels)
             loss = 0.7 * loss_supcon + 0.3 * loss_ce
+
+            # Guard against NaN (can happen early in training with noisy EEG)
+            if not torch.isfinite(loss):
+                optimizer.zero_grad()
+                continue
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
