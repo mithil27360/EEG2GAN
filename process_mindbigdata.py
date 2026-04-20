@@ -78,7 +78,7 @@ def _parse_eeg_csv(fpath, channel_map, seq_len, artifact_threshold):
     """
     Parse a single EEG CSV file.
     Returns (ch_array, found_channels) or raises ValueError with reason.
-    found_channels == -1 means artifact rejection.
+    found_channels == -1 means artifact rejection (pre-filter sanity check only).
     """
     ch_array = np.zeros((len(channel_map), seq_len), dtype=np.float32)
     found_channels = 0
@@ -116,7 +116,8 @@ def _parse_eeg_csv(fpath, channel_map, seq_len, artifact_threshold):
 
             vals_np = np.array(vals, dtype=np.float32)
 
-            # Pre-filter artifact rejection (raw amplitude)
+            # Pre-filter sanity check: reject only truly impossible spikes
+            # (e.g. sensor disconnection, ADC saturation — NOT normal DC offset)
             max_amp = np.nanmax(np.abs(vals_np))
             if max_amp > artifact_threshold:
                 return None, -1  # Artifact rejected
@@ -235,6 +236,13 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
             filter_fail_count += 1
             continue
         ch_array = filtered
+
+        # Post-filter artifact rejection: after bandpass removes DC drift,
+        # amplitudes > 150 µV indicate true artifacts (muscle noise, blinks, etc.)
+        post_max = np.nanmax(np.abs(ch_array))
+        if post_max > 150.0:
+            artifact_count += 1
+            continue
 
         # Channel-wise Z-score normalization
         means = ch_array.mean(axis=1, keepdims=True)
