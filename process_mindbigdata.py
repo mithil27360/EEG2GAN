@@ -269,19 +269,35 @@ def process_imagenet(csv_dir, output_dir, image_dir=None, word_report_path=None)
     if not data_list:
         print("Error: No samples were successfully processed!")
         if image_dir:
-            print("Tip: The image directory was specified but 0 samples passed all filters.")
-            print("     Try running without --image_dir first to verify EEG parsing works.")
+            print("Tip: The image directory was specified but 0 samples passed.")
+            print("     Try running without --image_dir to verify EEG parsing works.")
         return
 
     os.makedirs(output_dir, exist_ok=True)
+
+    # --- Remap labels to contiguous 0..N-1 ---
+    # After filtering, some synsets may have 0 surviving samples.
+    # We remap to remove gaps so n_unique_classes == max_label + 1.
+    unique_old  = sorted(set(labels_list))
+    remap       = {old: new for new, old in enumerate(unique_old)}
+    labels_list = [remap[l] for l in labels_list]
+    # Update synset_to_id to reflect new contiguous IDs
+    synset_to_id = {k: remap[v] for k, v in synset_to_id.items() if v in remap}
+    print(f"Label remap: {len(unique_old)} surviving synsets → IDs 0..{len(unique_old)-1}")
+
     np.save(os.path.join(output_dir, "eeg_signals.npy"), np.array(data_list))
-    np.save(os.path.join(output_dir, "labels.npy"),      np.array(labels_list))
+    np.save(os.path.join(output_dir, "labels.npy"),      np.array(labels_list, dtype=np.int64))
     if imgs_list:
         np.save(os.path.join(output_dir, "images.npy"), np.array(imgs_list))
 
-    meta = {"synset_to_id": synset_to_id, "id_to_word": id_to_word}
+    import json
+    meta = {
+        "synset_to_id": synset_to_id,
+        "id_to_word":   id_to_word,
+        # filenames list enables the OTF loader to find exact source images per sample
+        "filenames":    filenames_list if 'filenames_list' in dir() else [],
+    }
     with open(os.path.join(output_dir, "metadata.json"), 'w') as jf:
-        import json
         json.dump(meta, jf)
     print(f"Successfully saved {len(data_list)} samples to {output_dir}")
 

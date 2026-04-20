@@ -18,21 +18,20 @@ else:
     OUTPUT_DIR     = os.path.join(BASE_DIR, "outputs")
     FIGURES_DIR    = os.path.join(BASE_DIR, "figures")
 
+# ImageNet train directory — put the verified competition path first
 IMAGENET_DIR = "/kaggle/input/competitions/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
 if not os.path.exists(IMAGENET_DIR):
-    # Try alternate Kaggle paths (in order of likelihood)
-    alt_paths = [
+    for _p in [
         "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train",
         "/kaggle/input/imagenet-1k/train",
         "/kaggle/input/imagenet/train",
-        "/kaggle/input/imagenet-object-localization-challenge/train",
-        os.path.join(DATA_DIR, "imagenet", "train")
-    ]
-    for p in alt_paths:
-        if os.path.exists(p):
-            IMAGENET_DIR = p
+        os.path.join(DATA_DIR, "imagenet", "train"),
+    ]:
+        if os.path.exists(_p):
+            IMAGENET_DIR = _p
             break
 
+# ── Dataset paths ──────────────────────────────────────────────────────────────
 THOUGHTVIZ_EEG_OBJECTS    = os.path.join(DATA_DIR, "thoughtviz", "object", "eeg_signals.npy")
 THOUGHTVIZ_LABELS_OBJECTS = os.path.join(DATA_DIR, "thoughtviz", "object", "labels.npy")
 THOUGHTVIZ_IMAGES_OBJECTS = os.path.join(DATA_DIR, "thoughtviz", "object", "images.npy")
@@ -48,19 +47,20 @@ MINDBIGDATA_IMAGES = os.path.join(DATA_DIR, "mindbigdata", "images.npy")
 MINDBIGDATA_IMAGENET_EEG    = os.path.join(DATA_DIR, "mindbigdata_imagenet", "eeg_signals.npy")
 MINDBIGDATA_IMAGENET_LABELS = os.path.join(DATA_DIR, "mindbigdata_imagenet", "labels.npy")
 MINDBIGDATA_IMAGENET_IMAGES = os.path.join(DATA_DIR, "mindbigdata_imagenet", "images.npy")
+MINDBIGDATA_IMAGENET_META   = os.path.join(DATA_DIR, "mindbigdata_imagenet", "metadata.json")
 
-ERP_BASELINE_WINDOW = [-0.2, 0.0]
-ERP_EPOCH_WINDOW    = [-0.2, 0.8]
-ERP_BASELINE_CORR   = True
+# ── EEG hardware channels ──────────────────────────────────────────────────────
+EPOC_CHANNELS    = ["AF3","F7","F3","FC5","T7","P7","O1","O2","P8","T8","FC6","F4","F8","AF4"]
+INSIGHT_CHANNELS = ["AF3","AF4","T7","T8","Pz"]
 
-EPOC_CHANNELS    = ["AF3", "F7", "F3", "FC5", "T7", "P7", "O1", "O2", "P8", "T8", "FC6", "F4", "F8", "AF4"]
-INSIGHT_CHANNELS = ["AF3", "AF4", "T7", "T8", "Pz"]
+N_CHANNELS         = 14          # EPOC (Thoughtviz / MindBigData MNIST)
+IMAGENET_CHANNELS  = 5           # Insight (MindBigData ImageNet)
+SEQ_LEN            = 128
 
-N_CHANNELS  = 14
-SEQ_LEN     = 128
 N_CLASSES_OBJECTS = 10
 N_CLASSES_CHARS   = 10
 
+# ── Encoder architecture ───────────────────────────────────────────────────────
 EMBED_DIM   = 128
 N_HEADS     = 4
 N_LAYERS    = 3
@@ -68,58 +68,61 @@ FF_DIM      = 256
 DROPOUT     = 0.1
 OUT_DIM     = 256
 
-# --- EEG Advanced Pipeline ---
-EEG_SAMPLING_RATE   = 128   # For Emotiv Insight (MindBigData ImageNet)
-EEG_BANDPASS_FREQ   = [1.0, 50.0]
-EEG_NOTCH_FREQ      = 50.0
-EEG_ARTIFACT_THRESHOLD = 5000.0 # uV (absolute, pre-filter ceiling for raw Emotiv Insight)
-EEG_NORMALIZE       = False  # data is already Z-scored by process_mindbigdata.py;
-                             # double-normalization collapses inter-sample variance
-EEG_AUG_NOISE_STD   = 0.05
-EEG_AUG_SHIFT_MAX   = 8
-EEG_AUG_MASK_LEN    = 16
-EEG_WINDOW_SIZE     = 128
-EEG_WINDOW_STRIDE   = 128   # no overlap — avoids label-mapping bug in BalancedBatchSampler
-BALANCED_SAMPLING   = False  # random shuffle covers 569 imagenet classes better than
-                             # 4-class-per-batch balanced sampling
-SAMPLES_PER_CLASS   = 4
-# ----------------------------
+# ── EEG signal pipeline ────────────────────────────────────────────────────────
+EEG_SAMPLING_RATE      = 128        # Emotiv Insight sample rate
+EEG_BANDPASS_FREQ      = [1.0, 50.0]
+EEG_NOTCH_FREQ         = 50.0
+EEG_ARTIFACT_THRESHOLD = 5000.0    # µV ceiling for RAW pre-filter data (sensor disconnect)
+EEG_AUG_NOISE_STD      = 0.05
+EEG_AUG_SHIFT_MAX      = 8
+EEG_AUG_MASK_LEN       = 16
+EEG_WINDOW_SIZE        = 128
+EEG_WINDOW_STRIDE      = 128       # no overlap — avoids label-mapping edge case
+# IMPORTANT: process_mindbigdata.py already Z-scores each channel before saving.
+# Setting this to True would double-normalize and collapse inter-sample variance.
+EEG_NORMALIZE          = False
+BALANCED_SAMPLING      = False     # random shuffle covers many classes better
+SAMPLES_PER_CLASS      = 4
 
-MARGIN      = 0.3
+# ── Encoder training ───────────────────────────────────────────────────────────
+MARGIN           = 0.3
+ENC_LR           = 3e-4
+ENC_WEIGHT_DECAY = 1e-4
+ENC_BATCH_SIZE   = 64             # larger batch → more stable CE gradient with many classes
+ENC_EPOCHS       = 500
+ENC_PATIENCE     = 150            # 15 non-improving 10-epoch blocks before early stop
 
-ENC_LR          = 3e-4
-ENC_WEIGHT_DECAY= 1e-4
-ENC_BATCH_SIZE  = 64    # larger batch = more stable CE gradient with 569 classes
-ENC_EPOCHS      = 500
-ENC_PATIENCE    = 150   # 15 non-improving 10-epoch blocks before early stop
+# ── GAN architecture ───────────────────────────────────────────────────────────
+NOISE_DIM    = 100
+EEG_FEAT_DIM = 256
+Z_DIM        = NOISE_DIM + EEG_FEAT_DIM
 
-NOISE_DIM   = 100
-EEG_FEAT_DIM= 256
-Z_DIM       = NOISE_DIM + EEG_FEAT_DIM
+IMAGE_SIZE   = 128
+NC           = 3
+NGF          = 64
+NDF          = 64
 
-IMAGE_SIZE  = 128
-NC          = 3
-NGF         = 64
-NDF         = 64
-
-GAN_LR_G    = 0.0001
-GAN_LR_D    = 0.0001
-BETA1       = 0.0
-BETA2       = 0.999
+# ── GAN training ───────────────────────────────────────────────────────────────
+GAN_LR_G       = 0.0001
+GAN_LR_D       = 0.0001
+BETA1          = 0.0
+BETA2          = 0.999
 GAN_BATCH_SIZE = 32
-GAN_EPOCHS  = 300
-LAMBDA_MS   = 2.0
-LEAKY_SLOPE = 0.1
+GAN_EPOCHS     = 300
+LAMBDA_MS      = 2.0
+LEAKY_SLOPE    = 0.1
 
 DIFFAUG_POLICY = "color,translation,cutout"
 
-KMEANS_N_INIT   = 20
-IS_SPLITS       = 10
-IS_N_SAMPLES    = 2048
-CLIP_MODEL      = "openai/clip-vit-base-patch32"
+# ── Evaluation ─────────────────────────────────────────────────────────────────
+KMEANS_N_INIT = 20
+IS_SPLITS     = 10
+IS_N_SAMPLES  = 2048
+CLIP_MODEL    = "openai/clip-vit-base-patch32"
 
 SEED = 999
 
+# ── Ablation study variants ────────────────────────────────────────────────────
 ABLATION_CONFIGS = [
     {"n_layers": 1, "pooling": "mean", "tag": "L1_mean"},
     {"n_layers": 2, "pooling": "mean", "tag": "L2_mean"},
