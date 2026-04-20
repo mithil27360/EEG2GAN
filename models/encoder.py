@@ -153,8 +153,8 @@ class LSTMEEGEncoder(nn.Module):
         """
         if x.dim() == 2:
             x = x.unsqueeze(0)
-        # LSTM expects (B, T, C)
-        if x.shape[1] != self.lstm.input_size:
+        # Ensure (B, T, C) — permute if channels are in dim=1 instead of dim=-1
+        if x.shape[-1] != self.lstm.input_size:
             x = x.permute(0, 2, 1)                    # (B, C, T) → (B, T, C)
         _, (h_n, _) = self.lstm(x)                    # h_n: (2*n_layers, B, hidden)
         # Concat last forward and backward hidden states
