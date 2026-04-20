@@ -13,7 +13,6 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import config
 from dataset import get_eeg_loaders, DummyEEGDataset
 from models.encoder import TransformerEEGEncoder, LSTMEEGEncoder
-from utils.triplet_loss import SupConLoss
 from utils.metrics import kmeans_accuracy
 
 def parse_args():
@@ -126,13 +125,15 @@ def train(args):
     # Lightweight classification head — provides strong auxiliary gradient signal.
     # Discarded after training; only the encoder weights are saved.
     ce_head = nn.Linear(config.OUT_DIM, n_classes).to(device)
-    # Scale down init weights so logits start small — prevents log_softmax underflow on NaN
+    # Scale down init weights so logits start small — prevents log_softmax underflow
     with torch.no_grad():
         ce_head.weight.mul_(0.1)
         ce_head.bias.zero_()
 
-    supcon_loss_fn = SupConLoss(temperature=0.1)  # 0.07 too sharp for 500+ class noisy EEG
-    ce_loss_fn     = nn.CrossEntropyLoss(label_smoothing=0.1)  # smoothing prevents -inf logits
+    # Pure CrossEntropy — numerically stable even with 569 classes.
+    # SupConLoss caused persistent NaN with masked_fill on the computation graph
+    # at this scale; CE with label smoothing achieves similar representational quality.
+    ce_loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
 
     all_params = list(encoder.parameters()) + list(ce_head.parameters())
     optimizer  = optim.AdamW(all_params, lr=args.lr, weight_decay=config.ENC_WEIGHT_DECAY)
@@ -159,23 +160,26 @@ def train(args):
         ce_head.train()
         epoch_loss = 0.0
         n_batches  = 0
-        for batch in train_loader:
+        for i, batch in enumerate(train_loader):
             eeg, labels = batch[0], batch[1]
             eeg, labels = eeg.to(device), labels.to(device)
             optimizer.zero_grad()
 
-            feat = encoder(eeg)              # L2-normalized (B, OUT_DIM)
-            logits = ce_head(feat)           # (B, n_classes)
+            feat    = encoder(eeg)    # L2-normalized (B, OUT_DIM)
+            logits  = ce_head(feat)   # (B, n_classes)
+            loss    = ce_loss_fn(logits, labels)
 
-            loss_supcon = supcon_loss_fn(feat, labels)
-            loss_ce     = ce_loss_fn(logits, labels)
-            loss = 0.5 * loss_supcon + 0.5 * loss_ce
+            # Diagnostic: print first batch of first epoch to verify no NaN
+            if epoch == start_epoch and i == 0:
+                print(f"  [diag] feat: min={feat.min():.3f} max={feat.max():.3f} "
+                      f"nan={torch.isnan(feat).any().item()} | "
+                      f"loss={loss.item():.4f} nan={torch.isnan(loss).item()}")
 
-            # Replace any NaN/Inf with 0 so training always progresses.
-            # NaN can occur when zero-padded EEG channels produce zero-norm
-            # vectors; L2Norm eps helps but nan_to_num is the final safety net.
             if not torch.isfinite(loss):
-                loss = torch.nan_to_num(loss, nan=0.0, posinf=10.0, neginf=0.0)
+                # Should not happen with CE + smoothing; skip but count so avg isn't distorted
+                print(f"  [warn] NaN/Inf loss at epoch {epoch+1} batch {i} — skipping")
+                optimizer.zero_grad()
+                continue
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
