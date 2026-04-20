@@ -1,4 +1,5 @@
 import os
+import json
 import argparse
 import random
 import time
@@ -9,12 +10,69 @@ import torch.nn.functional as F
 import torch.optim as optim
 import sys
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from torchvision import transforms
 import config
 from dataset import get_eeg_image_loaders, DummyEEGImageDataset
 from models.encoder import TransformerEEGEncoder, LSTMEEGEncoder
 from models.gan import Generator, Discriminator, weights_init, hinge_loss_g, hinge_loss_d, mode_seeking_loss
 from utils.diffaugment import DiffAugment
+
+
+class EEGImageOnTheFlyDataset(Dataset):
+    """
+    Loads EEG + images on-the-fly from disk when images.npy is absent (e.g. ImageNet).
+    Uses synset metadata JSON and the original image_dir to fetch images at runtime.
+    Falls back to a random crop of a solid-colour image if a file is missing.
+    """
+    def __init__(self, eeg_path, label_path, metadata_path, image_dir):
+        self.eeg    = np.load(eeg_path).astype(np.float32)
+        self.labels = np.load(label_path).astype(np.int64)
+
+        # Fix shape: ensure (N, C, T)
+        if self.eeg.ndim == 3 and self.eeg.shape[1] == config.SEQ_LEN:
+            self.eeg = self.eeg.transpose(0, 2, 1)
+
+        with open(metadata_path, 'r') as f:
+            meta = json.load(f)
+        # id_to_synset: reverse of synset_to_id
+        self.id_to_synset = {v: k for k, v in meta["synset_to_id"].items()}
+        self.image_dir    = image_dir
+        self.transform = transforms.Compose([
+            transforms.Resize((config.IMAGE_SIZE, config.IMAGE_SIZE)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+    def _load_image(self, label_id):
+        synset = self.id_to_synset.get(int(label_id))
+        if synset and self.image_dir:
+            synset_dir = os.path.join(self.image_dir, synset)
+            if os.path.isdir(synset_dir):
+                files = [f for f in os.listdir(synset_dir)
+                         if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+                if files:
+                    path = os.path.join(synset_dir, random.choice(files))
+                    try:
+                        return Image.open(path).convert('RGB')
+                    except Exception:
+                        pass
+        # Fallback: random noise image
+        arr = np.random.randint(0, 256, (config.IMAGE_SIZE, config.IMAGE_SIZE, 3), dtype=np.uint8)
+        return Image.fromarray(arr)
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        eeg   = torch.from_numpy(self.eeg[idx])
+        if config.EEG_NORMALIZE:
+            eeg = (eeg - eeg.mean(dim=-1, keepdim=True)) / (eeg.std(dim=-1, keepdim=True) + 1e-6)
+        img   = self._load_image(self.labels[idx])
+        img   = self.transform(img)
+        label = torch.tensor(self.labels[idx])
+        return eeg, img, label
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -61,10 +119,27 @@ def train(args):
             "imagenet"   : (config.MINDBIGDATA_IMAGENET_EEG, config.MINDBIGDATA_IMAGENET_LABELS, config.MINDBIGDATA_IMAGENET_IMAGES),
         }
         eeg_p, lbl_p, img_p = ds_map[args.dataset]
-        if not os.path.exists(eeg_p) or not os.path.exists(img_p):
-            print(f"Error: Dataset files for {args.dataset} not found.")
+        if not os.path.exists(eeg_p):
+            print(f"Error: EEG file for {args.dataset} not found: {eeg_p}")
+            print("Did process_mindbigdata.py complete successfully?")
             sys.exit(1)
-        train_loader, _ = get_eeg_image_loaders(eeg_p, lbl_p, img_p, batch_size=args.batch_size)
+        if os.path.exists(img_p):
+            train_loader, _ = get_eeg_image_loaders(eeg_p, lbl_p, img_p, batch_size=args.batch_size)
+        else:
+            # images.npy not saved (typical for ImageNet — would be ~600 MB+).
+            # Use on-the-fly loader: reads images from the original ImageNet directory.
+            meta_p = img_p.replace("images.npy", "metadata.json")
+            if not os.path.exists(meta_p):
+                print(f"Error: metadata.json not found at {meta_p}. Cannot use on-the-fly loader.")
+                sys.exit(1)
+            img_dir = config.IMAGENET_DIR
+            if not os.path.isdir(img_dir):
+                print(f"Warning: IMAGENET_DIR '{img_dir}' not found. Images will be random noise.")
+                img_dir = None
+            print(f"Note: images.npy not found — using on-the-fly loader from {img_dir}")
+            otf_ds = EEGImageOnTheFlyDataset(eeg_p, lbl_p, meta_p, img_dir)
+            train_loader = DataLoader(otf_ds, batch_size=args.batch_size, shuffle=True,
+                                      drop_last=True, num_workers=2, pin_memory=True)
 
     n_channels = 5 if args.dataset == "imagenet" else 14
     if args.encoder_type == "transformer":

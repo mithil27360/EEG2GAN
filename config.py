@@ -18,11 +18,11 @@ else:
     OUTPUT_DIR     = os.path.join(BASE_DIR, "outputs")
     FIGURES_DIR    = os.path.join(BASE_DIR, "figures")
 
-IMAGENET_DIR = "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
+IMAGENET_DIR = "/kaggle/input/competitions/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train"
 if not os.path.exists(IMAGENET_DIR):
-    # Try alternate Kaggle paths
+    # Try alternate Kaggle paths (in order of likelihood)
     alt_paths = [
-        "/kaggle/input/competitions/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train",
+        "/kaggle/input/imagenet-object-localization-challenge/ILSVRC/Data/CLS-LOC/train",
         "/kaggle/input/imagenet-1k/train",
         "/kaggle/input/imagenet/train",
         "/kaggle/input/imagenet-object-localization-challenge/train",
