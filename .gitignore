@@ -16,9 +16,13 @@ venv.bak/
 data/
 outputs/
 checkpoints/
-figures/
 *.npy
 *.pth
+
+# Allow publication figures
+!results/figures/
+!results/figures/*.png
+!results/figures/*.jpg
 
 # OS generated files
 .DS_Store
