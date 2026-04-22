@@ -11,14 +11,6 @@
 src/results/
 results/
 
-!scripts/
-!scripts/train_encoder.py
-!scripts/train_gan.py
-!scripts/run_all.py
-!scripts/process_mindbigdata.py
-!scripts/evaluate.py
-!scripts/kaggle_setup.sh
-
 **/.DS_Store
 **/*.py[cod]
 **/*.log
