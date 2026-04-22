@@ -8,13 +8,13 @@ import config
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset",    choices=["objects", "characters", "mindbigdata", "imagenet"], default="objects")
-    p.add_argument("--dummy",      action="store_true")
+    p.add_argument("--dataset", choices=["objects", "characters", "mindbigdata", "imagenet"], default="objects")
+    p.add_argument("--dummy", action="store_true")
     p.add_argument("--enc_epochs", type=int, default=config.ENC_EPOCHS)
     p.add_argument("--gan_epochs", type=int, default=config.GAN_EPOCHS)
-    p.add_argument("--skip_baseline",  action="store_true")
+    p.add_argument("--skip_baseline", action="store_true")
     p.add_argument("--skip_ablations", action="store_true")
-    p.add_argument("--skip_visuals",   action="store_true")
+    p.add_argument("--skip_visuals", action="store_true")
     return p.parse_args()
 
 def run(cmd, label=""):
@@ -24,8 +24,8 @@ def run(cmd, label=""):
 
 def main():
     args = parse_args()
-    py   = sys.executable
-    ds   = args.dataset
+    py = sys.executable
+    ds = args.dataset
     dummy_flag = ["--dummy"] if args.dummy else []
     n_gen_eval = getattr(config, 'IS_N_SAMPLES', 2048)
     eval_flags = ["--n_gen", "230"] if args.dummy else ["--n_gen", str(n_gen_eval)]
@@ -45,7 +45,7 @@ def main():
         run([py, "visualize.py", "--fig", "demo_all"], label="Figures")
         emb_t = os.path.join(config.CHECKPOINT_DIR, f"embeddings_transformer_{ds}_main.npy")
         emb_l = os.path.join(config.CHECKPOINT_DIR, f"embeddings_lstm_{ds}_baseline.npy")
-        lbl   = os.path.join(config.CHECKPOINT_DIR, f"labels_{ds}.npy")
+        lbl = os.path.join(config.CHECKPOINT_DIR, f"labels_{ds}.npy")
         if os.path.isfile(emb_t) and os.path.isfile(emb_l) and os.path.isfile(lbl):
             run([py, "visualize.py", "--fig", "tsne", "--emb_transformer", emb_t, "--emb_lstm", emb_l, "--labels", lbl], label="Fig 2")
         G_t = os.path.join(config.OUTPUT_DIR, f"G_losses_transformer_{ds}_main.npy")

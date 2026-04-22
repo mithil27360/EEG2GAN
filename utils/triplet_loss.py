@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 def pairwise_distances(embeddings, squared=False):
-    dot   = embeddings @ embeddings.t()
-    sq    = dot.diag().unsqueeze(1) + dot.diag().unsqueeze(0)
-    dist  = (sq - 2 * dot).clamp(min=0)
+    dot = embeddings @ embeddings.t()
+    sq = dot.diag().unsqueeze(1) + dot.diag().unsqueeze(0)
+    dist = (sq - 2 * dot).clamp(min=0)
     if not squared:
         dist = torch.sqrt(dist + 1e-12)
     return dist
@@ -13,7 +13,7 @@ def pairwise_distances(embeddings, squared=False):
 def _get_triplet_mask(labels):
     B = labels.size(0)
     ids = torch.arange(B, device=labels.device)
-    distinct   = ids.unsqueeze(0) != ids.unsqueeze(1)
+    distinct = ids.unsqueeze(0) != ids.unsqueeze(1)
     same_label = labels.unsqueeze(0) == labels.unsqueeze(1)
     diff_label = ~same_label
     valid_ap = same_label & distinct
@@ -39,40 +39,22 @@ def batch_semi_hard_triplet_loss(embeddings, labels, margin=0.3, squared=False):
     return loss
 
 class SupConLoss(nn.Module):
-    """
-    Supervised Contrastive Loss (Khosla et al. 2020).
-    Pulls all same-class embeddings together, pushes all different-class apart.
-    Much stronger than triplet for multi-class problems with noisy signals.
-    """
     def __init__(self, temperature=0.07):
         super().__init__()
         self.temperature = temperature
-
     def forward(self, features, labels):
-        # features: (B, D) — assumed already L2-normalized
         device = features.device
         B = features.size(0)
-
-        # Compute similarity matrix
-        sim = torch.mm(features, features.t()) / self.temperature  # (B, B)
-
-        # Mask out self-comparisons
+        sim = torch.mm(features, features.t()) / self.temperature
         eye = torch.eye(B, device=device).bool()
         sim.masked_fill_(eye, float('-inf'))
-
-        # Positive mask: same label, different sample
         labels = labels.view(-1, 1)
-        pos_mask = (labels == labels.t()) & ~eye   # (B, B)
-
-        # For each anchor, log-softmax over all (non-self) positions, sum over positives
+        pos_mask = (labels == labels.t()) & ~eye
         log_prob = F.log_softmax(sim, dim=1)
-
-        # Mean over positives per anchor (skip anchors with no positives in batch)
         n_pos = pos_mask.float().sum(dim=1)
         valid = n_pos > 0
         if valid.sum() == 0:
             return torch.tensor(0.0, device=device, requires_grad=True)
-
         loss = -(log_prob * pos_mask.float()).sum(dim=1)
         loss = loss[valid] / n_pos[valid]
         return loss.mean()

@@ -11,10 +11,10 @@ from PIL import Image
 import config
 
 class InceptionScoreCalculator:
-    def __init__(self, device=None, batch_size= 32, splits= config.IS_SPLITS):
-        self.device     = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, device=None, batch_size=32, splits=config.IS_SPLITS):
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
-        self.splits     = splits
+        self.splits = splits
         self.model = models.inception_v3(weights=models.Inception_V3_Weights.DEFAULT)
         self.model.eval().to(self.device)
         self.transform = transforms.Compose([
@@ -23,7 +23,6 @@ class InceptionScoreCalculator:
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ])
-
     @torch.no_grad()
     def get_predictions(self, images):
         all_preds = []
@@ -36,48 +35,32 @@ class InceptionScoreCalculator:
             probs = F.softmax(logits, dim=1).cpu().numpy()
             all_preds.append(probs)
         return np.concatenate(all_preds, axis=0)
-
     def compute(self, images):
         preds = self.get_predictions(images)
-        N     = preds.shape[0]
+        N = preds.shape[0]
         split_scores = []
         for k in range(self.splits):
             part = preds[k * (N // self.splits): (k + 1) * (N // self.splits)]
-            py   = part.mean(axis=0)
-            kl   = [entropy(p, py) for p in part]
+            py = part.mean(axis=0)
+            kl = [entropy(p, py) for p in part]
             split_scores.append(np.exp(np.mean(kl)))
         return float(np.mean(split_scores)), float(np.std(split_scores))
 
-def kmeans_accuracy(
-    embeddings,
-    labels,
-    n_clusters= None,
-    n_init= config.KMEANS_N_INIT,
-    seed= config.SEED,
-):
+def kmeans_accuracy(embeddings, labels, n_clusters=None, n_init=config.KMEANS_N_INIT, seed=config.SEED):
     import warnings
     from sklearn.exceptions import ConvergenceWarning
-    
-    if len(embeddings) < 2:
-        return 0.0
-        
+    if len(embeddings) < 2: return 0.0
     if n_clusters is None:
         n_clusters = len(np.unique(labels))
-    
     n_samples = embeddings.shape[0]
-    # At least 4 samples per cluster; hard cap of 200 avoids degenerate centroids
     n_clusters = min(n_clusters, n_samples // 4, 200)
-
     km = KMeans(n_clusters=n_clusters, n_init=n_init, random_state=seed)
-    
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=ConvergenceWarning)
         try:
             cluster_ids = km.fit_predict(embeddings)
-        except Exception as e:
-            print(f"KMeans Error: {e}")
+        except Exception:
             return 0.0
-
     cluster_to_label = {}
     for c in range(n_clusters):
         mask = cluster_ids == c
@@ -85,28 +68,24 @@ def kmeans_accuracy(
             cluster_to_label[c] = 0
             continue
         cluster_to_label[c] = int(np.bincount(labels[mask]).argmax())
-    
     predicted = np.array([cluster_to_label[c] for c in cluster_ids])
     return float(accuracy_score(labels, predicted))
 
 class EISCCalculator:
-    def __init__(self, device=None, batch_size= 32):
+    def __init__(self, device=None, batch_size=32):
         from transformers import CLIPModel, CLIPProcessor
-        self.device     = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
-        self.model     = CLIPModel.from_pretrained(config.CLIP_MODEL).to(self.device)
+        self.model = CLIPModel.from_pretrained(config.CLIP_MODEL).to(self.device)
         self.processor = CLIPProcessor.from_pretrained(config.CLIP_MODEL)
         self.model.eval()
-
     @torch.no_grad()
     def _encode_images(self, images):
         all_embs = []
         for i in range(0, len(images), self.batch_size):
-            batch  = images[i: i + self.batch_size]
-            inputs = self.processor(images=batch, return_tensors="pt",
-                                    padding=True).to(self.device)
+            batch = images[i: i + self.batch_size]
+            inputs = self.processor(images=batch, return_tensors="pt", padding=True).to(self.device)
             outputs = self.model.get_image_features(**inputs)
-            # Handle cases where CLIP returns an output object instead of a tensor
             if hasattr(outputs, "image_embeds"):
                 embs = outputs.image_embeds
             elif hasattr(outputs, "pooler_output"):
@@ -115,23 +94,18 @@ class EISCCalculator:
                 embs = outputs[0]
             else:
                 embs = outputs
-            embs   = F.normalize(embs, p=2, dim=1)
+            embs = F.normalize(embs, p=2, dim=1)
             all_embs.append(embs.cpu().numpy())
         return np.concatenate(all_embs, axis=0)
-
-    def compute(
-        self,
-        generated_images,
-        real_images,
-    ):
+    def compute(self, generated_images, real_images):
         assert len(generated_images) == len(real_images)
-        emb_gen  = self._encode_images(generated_images)
+        emb_gen = self._encode_images(generated_images)
         emb_real = self._encode_images(real_images)
         cos_sims = (emb_gen * emb_real).sum(axis=1)
         return float(cos_sims.mean())
 
 class FIDCalculator:
-    def __init__(self, device=None, batch_size= 32):
+    def __init__(self, device=None, batch_size=32):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.model = models.inception_v3(weights=models.Inception_V3_Weights.DEFAULT)
@@ -143,7 +117,6 @@ class FIDCalculator:
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ])
-
     @torch.no_grad()
     def _get_features(self, images):
         feats = []
@@ -153,7 +126,6 @@ class FIDCalculator:
             f = self.model(tensors)
             feats.append(f.cpu().numpy())
         return np.concatenate(feats, axis=0)
-
     def compute(self, gen_images, real_images):
         from scipy.linalg import sqrtm
         f_gen = self._get_features(gen_images)
@@ -168,8 +140,8 @@ class FIDCalculator:
 
 def tensor_to_pil_list(tensor):
     imgs = []
-    arr  = (tensor.detach().cpu().permute(0, 2, 3, 1).numpy() * 0.5 + 0.5)
-    arr  = (arr * 255).clip(0, 255).astype(np.uint8)
+    arr = (tensor.detach().cpu().permute(0, 2, 3, 1).numpy() * 0.5 + 0.5)
+    arr = (arr * 255).clip(0, 255).astype(np.uint8)
     for i in range(arr.shape[0]):
         imgs.append(Image.fromarray(arr[i]))
     return imgs
