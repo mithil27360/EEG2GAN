@@ -8,11 +8,16 @@
 !src/
 !src/**
 
-!visualizations/
-!visualizations/*.py
+!results/
+!results/figures/
+!results/figures/*.png
+!results/figures/*.jpg
+!results/figures/*.pdf
 
 src/results/
-results/
+results/checkpoints/
+results/data/
+results/outputs/
 
 **/.DS_Store
 **/*.py[cod]
