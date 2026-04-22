@@ -8,6 +8,9 @@
 !src/
 !src/**
 
+!visualizations/
+!visualizations/*.py
+
 src/results/
 results/
 
