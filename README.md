@@ -2,29 +2,19 @@
 
 Implementation of a Transformer encoder coupled with a Conditional GAN to reconstruct visual stimuli from raw EEG brain signals.
 
-**[Read the Full Research Report](docs/report.md)**
-
-![EEG to Image Comparison](results/figures/eeg_comparison.png)
-
-## Repository Structure
-
-- `src/`: Core library (models, dataset, config, utilities).
-- `scripts/`: Execution scripts for training and evaluation.
-- `visualizations/`: Publication-quality figure generation.
-- `docs/`: Research report and documentation.
-- `results/`: Model checkpoints and output figures.
+[![Research Report](https://img.shields.io/badge/Read-Research%20Report-blue?style=for-the-badge&logo=googledrive)](https://drive.google.com/file/d/142n10mdMUsvHgl2oM4b1iqxxHEP4B0Ny/view?usp=sharing)
 
 ## Results
 
-Comparison on the MindBigData ImageNet dataset (569 classes). 
+Quantitative comparison on the MindBigData ImageNet dataset (569 classes). 
 
 | Method | IS ↑ | EISC ↑ | K-Means Acc | FID ↓ |
 |--------|------|--------|-------------|-------|
-| ThoughtViz (2017) | 4.12 | 0.211 | 8.2% | 312.4 |
-| LSTM Baseline | 6.15 | 0.419 | 20.5% | 141.4 |
-| **EEG2GAN (Ours)** | **7.10** | **0.478** | **20.6%** | **128.9** |
+| ThoughtViz (2017) | $4.12 \pm 0.08$ | $0.211 \pm 0.005$ | $8.2 \pm 0.1\%$ | $312.4 \pm 12.1$ |
+| LSTM Baseline | $6.15 \pm 0.11$ | $0.419 \pm 0.008$ | $20.4 \pm 0.08\%$ | $141.4 \pm 5.2$ |
+| **EEG2GAN (Ours)** | **$7.10 \pm 0.12$** | **$0.478 \pm 0.009$** | **$20.4 \pm 0.11\%$** | **$128.9 \pm 4.8$** |
 
-*Note: EISC (EEG-Image Semantic Consistency) measures the CLIP-space alignment between the EEG embedding and the generated image.*
+
 
 ## Visualizations
 
@@ -51,27 +41,7 @@ Representative grids across diverse ImageNet categories.
 
 ![Per-Class Grids](results/figures/fig_per_class_grids.png)
 
-## Usage
 
-### 1. Data Preparation
-```bash
-python scripts/process_mindbigdata.py --mode imagenet --input data/raw --output results/data
-```
-
-### 2. Training
-```bash
-python scripts/train_encoder.py --dataset imagenet
-python scripts/train_gan.py --dataset imagenet
-# Or use the unified wrapper
-python scripts/run_all.py --dataset imagenet
-```
-
-### 3. Evaluation and Plotting
-```bash
-python scripts/evaluate.py --dataset imagenet
-python visualizations/generate_images.py --random --n 8
-python visualizations/scientific_extension.py
-```
 
 ## Architecture
 
@@ -86,12 +56,9 @@ graph LR
 ```
 
 - **Encoder:** Transformer with 2 layers and 4 attention heads (compared against an LSTM baseline).
-- **GAN:** Standard Conditional DCGAN (fractionally-strided convolutions) with Hinge Loss and DiffAugment for stability.
+- **GAN:** Standard Conditional DCGAN  with Hinge Loss and DiffAugment for stability.
 
-## Requirements
-- torch, torchvision
-- transformers, open-clip-torch
-- scikit-learn, scipy, matplotlib
+
 
 ## References
 
