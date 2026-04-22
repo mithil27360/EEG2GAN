@@ -45,9 +45,7 @@ Power spectral density tracking across different cognitive states and manifold i
 
 ![EEG Spectra](results/figures/fig_eeg_spectra.png)
 
-| Latent Morphing | Memorization Check |
-|:---:|:---:|
-| ![Latent Morphing](results/figures/fig_interpolation.png) | ![Memorization Check](results/figures/fig_memorization_check.png) |
+
 
 ### Sample Generations
 Representative grids across diverse ImageNet categories and failure case analysis.
