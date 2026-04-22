@@ -32,11 +32,11 @@ def main():
     
     if not args.skip_baseline:
         run([py, "train_encoder.py", "--encoder", "lstm", "--dataset", ds, "--epochs", str(args.enc_epochs), "--tag", "baseline"] + dummy_flag, label="Exp 1a")
-        run([py, "train_gan.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_lstm_{ds}_baseline.pth"), "--encoder_type", "lstm", "--dataset", ds, "--epochs", str(args.gan_epochs), "--tag", "baseline"] + dummy_flag, label="Exp 1b")
+        run([py, "train_gan.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_lstm_{ds}_baseline.pth"), "--encoder_type", "lstm", "--dataset", ds, "--epochs", str(args.gan_epochs), "--tag", "baseline", "--resume"] + dummy_flag, label="Exp 1b")
         run([py, "evaluate.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_lstm_{ds}_baseline.pth"), "--gan_ckpt", os.path.join(config.CHECKPOINT_DIR, f"gan_lstm_{ds}_baseline.pth"), "--encoder_type", "lstm", "--dataset", ds, "--no_eisc", "--output_csv", "results_main.csv"] + dummy_flag + eval_flags, label="Exp 1c")
         
     run([py, "train_encoder.py", "--encoder", "transformer", "--dataset", ds, "--epochs", str(args.enc_epochs), "--tag", "main"] + dummy_flag, label="Exp 2a")
-    run([py, "train_gan.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_transformer_{ds}_main.pth"), "--encoder_type", "transformer", "--dataset", ds, "--epochs", str(args.gan_epochs), "--tag", "main"] + dummy_flag, label="Exp 2b")
+    run([py, "train_gan.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_transformer_{ds}_main.pth"), "--encoder_type", "transformer", "--dataset", ds, "--epochs", str(args.gan_epochs), "--tag", "main", "--resume"] + dummy_flag, label="Exp 2b")
     run([py, "evaluate.py", "--encoder_ckpt", os.path.join(config.CHECKPOINT_DIR, f"encoder_transformer_{ds}_main.pth"), "--gan_ckpt", os.path.join(config.CHECKPOINT_DIR, f"gan_transformer_{ds}_main.pth"), "--encoder_type", "transformer", "--dataset", ds, "--output_csv", "results_main.csv"] + dummy_flag + eval_flags, label="Exp 2c")
     
     if not args.skip_ablations:

@@ -82,6 +82,13 @@ def parse_args():
     p.add_argument("--lr_d",          type=float, default=config.GAN_LR_D)
     p.add_argument("--tag",           type=str,   default="")
     p.add_argument("--no_diffaug",    action="store_true")
+    p.add_argument("--resume",        action="store_true",
+                   help="Resume from latest checkpoint if available")
+    p.add_argument("--save_every",    type=int,   default=10,
+                   help="Save a checkpoint every N epochs (default: 10)")
+    p.add_argument("--time_budget",   type=float, default=41400.0,
+                   help="Stop training after this many seconds and save "
+                        "(default: 41400 = 11.5 h, safely under Kaggle's 12 h limit)")
     return p.parse_args()
 
 
@@ -160,6 +167,22 @@ def _build_encoder(args, device):
     return enc
 
 
+def _save_checkpoint(path, netG, netD, optimizerG, optimizerD,
+                     schedulerG, schedulerD, epoch, history, args):
+    """Persist full training state so a run can be resumed exactly."""
+    torch.save({
+        "epoch"           : epoch,
+        "G_state"         : netG.state_dict(),
+        "D_state"         : netD.state_dict(),
+        "optimizerG_state": optimizerG.state_dict(),
+        "optimizerD_state": optimizerD.state_dict(),
+        "schedulerG_state": schedulerG.state_dict(),
+        "schedulerD_state": schedulerD.state_dict(),
+        "history"         : history,
+        "args"            : vars(args),
+    }, path)
+
+
 def train(args):
     random.seed(config.SEED)
     np.random.seed(config.SEED)
@@ -193,10 +216,36 @@ def train(args):
     ckpt_path = os.path.join(config.CHECKPOINT_DIR,
                              f"gan_{args.encoder_type}_{args.dataset}{tag_str}.pth")
 
-    history = {"G_loss": [], "D_loss": []}
-    t0      = time.time()
+    history     = {"G_loss": [], "D_loss": []}
+    start_epoch = 0
 
-    for epoch in range(args.epochs):
+    # ── Resume from checkpoint ────────────────────────────────────────────────
+    if args.resume and os.path.isfile(ckpt_path):
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+        netG.load_state_dict(ckpt["G_state"])
+        netD.load_state_dict(ckpt["D_state"])
+        optimizerG.load_state_dict(ckpt["optimizerG_state"])
+        optimizerD.load_state_dict(ckpt["optimizerD_state"])
+        if "schedulerG_state" in ckpt:
+            schedulerG.load_state_dict(ckpt["schedulerG_state"])
+        if "schedulerD_state" in ckpt:
+            schedulerD.load_state_dict(ckpt["schedulerD_state"])
+        start_epoch = ckpt["epoch"]          # first epoch to run next
+        history     = ckpt.get("history", history)
+        print(f"Resumed from epoch {start_epoch} (checkpoint: {ckpt_path})")
+    elif args.resume:
+        print(f"No checkpoint found at {ckpt_path} — starting fresh.")
+
+    t0 = time.time()
+
+    for epoch in range(start_epoch, args.epochs):
+        # ── Time-budget guard: stop before Kaggle kills the kernel ────────────
+        elapsed = time.time() - t0
+        if elapsed >= args.time_budget:
+            print(f"Time budget ({args.time_budget:.0f}s) reached after "
+                  f"epoch {epoch}. Saving and exiting.", flush=True)
+            break
+
         netG.train()
         netD.train()
         epoch_g = epoch_d = 0.0
@@ -272,15 +321,19 @@ def train(args):
         print(f"Epoch {epoch+1:4d}/{args.epochs} | "
               f"G={avg_g:.4f}  D={avg_d:.4f} | t={elapsed:.0f}s", flush=True)
 
-    # ── Save checkpoint and loss curves ─────────────────────────────────────────
-    torch.save({
-        "epoch"           : args.epochs,
-        "G_state"         : netG.state_dict(),
-        "D_state"         : netD.state_dict(),
-        "optimizerG_state": optimizerG.state_dict(),
-        "optimizerD_state": optimizerD.state_dict(),
-        "args"            : vars(args),
-    }, ckpt_path)
+        # ── Periodic checkpoint ───────────────────────────────────────────────
+        completed_epoch = epoch + 1     # 1-indexed epoch just finished
+        if completed_epoch % args.save_every == 0:
+            _save_checkpoint(ckpt_path, netG, netD, optimizerG, optimizerD,
+                             schedulerG, schedulerD, completed_epoch,
+                             history, args)
+            print(f"  → Checkpoint saved at epoch {completed_epoch}", flush=True)
+
+    # ── Final checkpoint and loss curves ─────────────────────────────────────
+    _save_checkpoint(ckpt_path, netG, netD, optimizerG, optimizerD,
+                     schedulerG, schedulerD,
+                     len(history["G_loss"]),   # = total completed epochs
+                     history, args)
     print(f"GAN checkpoint saved to {ckpt_path}")
 
     for key, arr in history.items():
