@@ -1,24 +1,16 @@
-# =========================================================================
-# STRICT REPOSITORY FOCUS: CORE ENGINEERING ONLY
-# =========================================================================
-
-# Global ignore
 *
 .*
 
-# 1. WHITELIST: Identity
 !README.md
 !requirements.txt
 !.gitignore
 
-# 2. WHITELIST: Source subtree
 !src/
 !src/**
 
-# 3. RE-MASK: Ignore binary data inside source
 src/results/
+results/
 
-# 4. WHITELIST: Scripts subtree
 !scripts/
 !scripts/train_encoder.py
 !scripts/train_gan.py
@@ -27,7 +19,6 @@ src/results/
 !scripts/evaluate.py
 !scripts/kaggle_setup.sh
 
-# Standard System Ignores
 **/.DS_Store
 **/*.py[cod]
 **/*.log
