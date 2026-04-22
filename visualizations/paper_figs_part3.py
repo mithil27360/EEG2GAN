@@ -12,7 +12,7 @@ import config
 from models.encoder import TransformerEEGEncoder
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_DATA = config.DATA_DIR
+DEFAULT_DATA = os.path.join(config.DATA_DIR, "mindbigdata_imagenet")
 DEFAULT_CKPT = config.CHECKPOINT_DIR
 
 class SimpleDCGANGenerator(nn.Module):

@@ -16,7 +16,7 @@ GRAY = "#444444"
 FONT_SIZE = 9
 PALETTE = "Blues"
 _ROOT = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_DATA = config.DATA_DIR
+DEFAULT_DATA = os.path.join(config.DATA_DIR, "mindbigdata_imagenet")
 DEFAULT_CKPT = config.CHECKPOINT_DIR
 
 nltk.download('wordnet', quiet=True)
@@ -94,9 +94,11 @@ def fig3_table():
         ["LSTM Baseline", "LSTM + DCGAN", "6.15", "0.419", "0.205", "141.4"],
         ["EEG2GAN (Ours)", "Transformer + DCGAN", "7.10", "0.478", "0.206", "128.9"],
     ]
-    fig, ax = plt.subplots(figsize=(12, 3), facecolor=BG)
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=BG)
     ax.axis('off')
-    col_widths = [0.18, 0.22, 0.1, 0.1, 0.12, 0.1]
+    plt.title("Quantitative Comparison: Image Quality and Semantic Alignment", 
+              fontsize=12, fontweight='bold', pad=20)
+    col_widths = [0.22, 0.22, 0.1, 0.1, 0.1, 0.1]
     table = ax.table(cellText=data, loc='center', cellLoc='center', 
                      edges='horizontal', colWidths=col_widths)
     table.auto_set_font_size(False)
