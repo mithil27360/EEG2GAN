@@ -6,7 +6,7 @@ from tqdm import tqdm
 from PIL import Image
 from scipy.signal import butter, filtfilt, iirnotch
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import config
 
 def process_mnist(raw_file_path, output_dir):

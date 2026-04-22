@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import config
 from models.encoder import TransformerEEGEncoder
 from visualizations.generate_images import SimpleDCGANGenerator, _detect_gan_type, _auto_ckpt

@@ -7,7 +7,7 @@ import matplotlib.gridspec as gridspec
 from scipy.signal import welch
 import nltk
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import config
 from models.encoder import TransformerEEGEncoder
 

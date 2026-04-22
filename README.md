@@ -2,18 +2,17 @@
 
 Implementation of a Transformer encoder coupled with a Conditional GAN to reconstruct visual stimuli from raw EEG brain signals.
 
-**[Read the Full Research Report](research_report.md)**
+**[Read the Full Research Report](docs/report.md)**
 
 ![EEG to Image Comparison](results/figures/eeg_comparison.png)
 
 ## Repository Structure
 
-- `models/`: Transformer encoder and GAN architectures.
-- `scripts/`: Data processing and training routines.
-- `evaluation/`: Scripts for metrics (FID, IS, EISC).
-- `visualizations/`: Plotting and figure generation.
-- `results/`: Model checkpoints and publication figures.
-- `config.py`: Training and hardware configuration.
+- `src/`: Core library (models, dataset, config, utilities).
+- `scripts/`: Execution scripts for training and evaluation.
+- `visualizations/`: Publication-quality figure generation.
+- `docs/`: Research report and documentation.
+- `results/`: Model checkpoints and output figures.
 
 ## Results
 
@@ -64,7 +63,7 @@ python scripts/process_mindbigdata.py --mode imagenet --input data/raw --output 
 python scripts/train_encoder.py --dataset imagenet
 python scripts/train_gan.py --dataset imagenet
 # Or use the unified wrapper
-python run_all.py --dataset imagenet
+python scripts/run_all.py --dataset imagenet
 ```
 
 ### 3. Evaluation and Plotting
@@ -86,8 +85,8 @@ graph LR
     F --> G[Image]
 ```
 
-- **Encoder:** Transformer with 4 layers and 8 attention heads.
-- **GAN:** DCGAN/ResNet with Hinge Loss and DiffAugment for stability.
+- **Encoder:** Transformer with 2 layers and 4 attention heads (compared against an LSTM baseline).
+- **GAN:** Standard Conditional DCGAN (fractionally-strided convolutions) with Hinge Loss and DiffAugment for stability.
 
 ## Requirements
 - torch, torchvision

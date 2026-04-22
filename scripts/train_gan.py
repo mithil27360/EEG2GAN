@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from PIL import Image
 from torchvision import transforms
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import config
 from dataset import (get_eeg_image_loaders, get_eeg_image_loaders_otf,
                      DummyEEGImageDataset)
