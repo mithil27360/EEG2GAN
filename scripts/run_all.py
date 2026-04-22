@@ -21,7 +21,6 @@ def parse_args():
 
 def run(cmd, label=""):
     print(f"\n   {label}")
-    # Ensure we run scripts from the scripts directory
     ret = subprocess.run(cmd)
     return ret.returncode == 0
 
@@ -33,7 +32,6 @@ def main():
     n_gen_eval = getattr(config, 'IS_N_SAMPLES', 2048)
     eval_flags = ["--n_gen", "230"] if args.dummy else ["--n_gen", str(n_gen_eval)]
     
-    # Get absolute paths to scripts
     base_dir = os.path.dirname(os.path.abspath(__file__))
     viz_dir = os.path.join(base_dir, "..", "visualizations")
     
@@ -55,7 +53,6 @@ def main():
         run([py, script_abl, "--dataset", ds, "--enc_epochs", str(args.enc_epochs), "--gan_epochs", str(args.gan_epochs), "--output_csv", "results_ablation.csv"] + dummy_flag, label="Exp 3")
     
     if not args.skip_visuals:
-        # Using the new publication visualization scripts
         run([py, os.path.join(viz_dir, "paper_figs_part1.py")], label="Main Figures")
         run([py, os.path.join(viz_dir, "paper_figs_part2.py")], label="Supplementary 1")
         run([py, os.path.join(viz_dir, "paper_figs_part3.py")], label="Supplementary 2")

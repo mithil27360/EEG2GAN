@@ -1,34 +1,34 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+# =========================================================================
+# STRICT REPOSITORY FOCUS: CORE ENGINEERING ONLY
+# =========================================================================
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Global ignore
+*
+.*
 
-# Data and Models
-data/
-outputs/
-checkpoints/
-*.npy
-*.pth
+# 1. WHITELIST: Identity
+!README.md
+!requirements.txt
+!.gitignore
 
-# Allow publication figures
-!results/figures/
-!results/figures/*.png
-!results/figures/*.jpg
+# 2. WHITELIST: Source subtree
+!src/
+!src/**
 
-# OS generated files
+# 3. RE-MASK: Ignore binary data inside source
+src/results/
+
+# 4. WHITELIST: Scripts subtree
+!scripts/
+!scripts/train_encoder.py
+!scripts/train_gan.py
+!scripts/run_all.py
+!scripts/process_mindbigdata.py
+!scripts/evaluate.py
+!scripts/kaggle_setup.sh
+
+# Standard System Ignores
+**/.DS_Store
+**/*.py[cod]
+**/*.log
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db

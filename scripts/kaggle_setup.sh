@@ -28,7 +28,6 @@ fi
 echo " Found CSVs in: $CSV_ROOT"
 
 echo " Detecting ImageNet..."
-# Use Python to get the path from config.py
 IMAGENET_PATH=$(python -c "import config; print(config.IMAGENET_DIR)")
 
 if [ ! -d "$IMAGENET_PATH" ]; then
