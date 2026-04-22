@@ -48,10 +48,9 @@ Power spectral density tracking across different cognitive states and manifold i
 
 
 ### Sample Generations
-Representative grids across diverse ImageNet categories and failure case analysis.
+Representative grids across diverse ImageNet categories.
 
 ![Per-Class Grids](results/figures/fig_per_class_grids.png)
-![Failure Analysis](results/figures/fig_failure_analysis.png)
 
 ## Usage
 
@@ -83,7 +82,7 @@ graph LR
     B --> C(Transformer)
     C --> D{Concat}
     E[Noise z] --> D
-    D --> F[Cond GAN]
+    D --> F[EEG-Conditioned GAN]
     F --> G[Image]
 ```
 

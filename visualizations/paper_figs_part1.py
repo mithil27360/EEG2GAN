@@ -108,8 +108,8 @@ def fig3_table():
         for j in range(len(data[0])):
             cell = table[(i, j)]
             if i == 0:
-                cell.set_text_props(weight='bold', color='white')
-                cell.set_facecolor(BLUE)
+                cell.set_text_props(weight='bold', color='black')
+                cell.set_facecolor('#f2f2f2')
             elif i == len(data) - 1:
                 cell.set_text_props(weight='bold')
                 cell.set_facecolor('#e3f2fd')

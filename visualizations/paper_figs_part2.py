@@ -113,36 +113,6 @@ def fig4_grids(encoder, netG, z_dim):
     plt.savefig("fig_per_class_grids.png", dpi=150, bbox_inches='tight')
     plt.close()
 
-def fig5_failure(encoder, netG, z_dim):
-    device = torch.device("cpu")
-    eeg_np = np.load(os.path.join(DEFAULT_DATA, "eeg_signals.npy")).astype(np.float32)
-    imgs_np = np.load(os.path.join(DEFAULT_DATA, "images.npy"), mmap_mode='r')
-    lbls_np = np.load(os.path.join(DEFAULT_DATA, "labels.npy"))
-    indices = [155, 6, 22, 100]
-    fig, axes = plt.subplots(4, 2, figsize=(6, 12), facecolor='white')
-    noise_dim = config.NOISE_DIM
-    eeg_feat_dim = z_dim - noise_dim
-    for i, idx in enumerate(indices):
-        eeg_in = torch.from_numpy(eeg_np[idx:idx+1]).to(device)
-        real_img = imgs_np[idx]
-        real_name = get_name(lbls_np[idx])
-        feat = encoder(eeg_in)
-        if feat.shape[1] != eeg_feat_dim:
-            feat = feat[:, :eeg_feat_dim]
-        noise = torch.randn(1, noise_dim)
-        z = torch.cat([noise, feat], dim=1)
-        fake = netG(z)
-        fake = ((fake + 1) / 2.0).clamp(0, 1).detach().cpu().permute(0, 2, 3, 1).numpy()[0]
-        axes[i, 0].imshow(real_img)
-        axes[i, 0].set_title(f"Target: {real_name}", fontsize=8)
-        axes[i, 0].axis('off')
-        axes[i, 1].imshow(fake)
-        axes[i, 1].axis('off')
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig("fig_failure_analysis.png", dpi=150, bbox_inches='tight')
-    plt.close()
-
 if __name__ == "__main__":
     enc, g, z_d = load_models()
     fig4_grids(enc, g, z_d)
-    fig5_failure(enc, g, z_d)

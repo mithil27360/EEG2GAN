@@ -52,18 +52,7 @@ The model was evaluated against multiple baselines on a held-out test set.
 
 ### 4.2 Qualitative Visualizations
 We present figures generated using our standardized visualization suite:
-- **Latent Morphing:** Successful smooth interpolation between classes (e.g., Bird → Dog) suggests that the encoder has learned a continuous neural manifold.
 - **Spectral Validation:** Frequency analysis confirms that the model relies on biologically relevant oscillations (Alpha/Beta desynchronization) during visual processing.
-
----
-
-## 5. Discussion
-
-### 5.1 The "Creativity" vs. "Memorization" Debate
-A central critique of GAN research is "mode memorization." We conducted a **Nearest Neighbor Verification** (Figure 9 in the README) comparing generated samples to the top-2000 training images. The results indicate significant visual differences (L1 distance > 0.3), proving that EEG2GAN synthesizes novel images based on neural intent rather than repeating training data.
-
-### 5.2 Failure Case Analysis
-The model exhibits high performance on objects with distinct textures (e.g., dogs, birds) but struggles with highly complex backgrounds or low-density classes. This suggests that the current 5-channel EEG resolution is sufficient for category-level semantics but may require higher channel counts (e.g., 128-ch) for fine-grained structural reconstruction.
 
 ---
 
