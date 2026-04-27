@@ -2,7 +2,7 @@
 
 Implementation of a Transformer encoder coupled with a Conditional GAN to reconstruct visual stimuli from raw EEG brain signals.
 
-**[ Research Report](https://drive.google.com/file/d/142n10mdMUsvHgl2oM4b1iqxxHEP4B0Ny/view?usp=sharing)**
+**[ Research Report](https://drive.google.com/file/d/1V-ASnv6rB-KI9fHSm-Ne00ZfKl-qnNYt/view?usp=sharing)**
 
 ## Results
 
